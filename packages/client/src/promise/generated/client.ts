@@ -722,6 +722,7 @@ export function make(options: ClientOptions) {
               agents: input["agents"],
               skills: input["skills"],
               metadata: input["metadata"],
+              format: input["format"],
               delivery: input["delivery"],
               resume: input["resume"],
             },
