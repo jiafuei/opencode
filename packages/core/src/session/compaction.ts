@@ -204,6 +204,17 @@ export const layer = Layer.effect(
       if (trigger.reason !== "manual" && !settings.auto) return { status: "skipped" }
       const ceiling = calculateCeiling(context.model.limit, settings.buffer)
       if (trigger.reason === "auto" && !due(context, ceiling)) return { status: "skipped" }
+      if (
+        trigger.reason === "auto" &&
+        (yield* requests.decideCompaction({
+          sessionID: context.session.id,
+          agent: context.agent.id,
+          model: context.model.ref,
+          tokens: estimateContext(context),
+          action: "compact",
+        })).action === "continue"
+      )
+        return { status: "skipped" }
       // An unknown window never triggers auto compaction, but the compaction request still needs a size to aim for.
       const cap = Number.isFinite(ceiling)
         ? ceiling
