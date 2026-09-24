@@ -3383,6 +3383,31 @@ describe("SessionRunnerLLM", () => {
     ])
   })
 
+  scenario("ends the turn when the model returns requested structured output", function* (s) {
+    const schema = { type: "object", properties: { answer: { type: "string" } }, required: ["answer"] }
+    yield* s.session.prompt({
+      sessionID,
+      text: "Answer briefly",
+      format: { type: "json_schema", schema: { $schema: "http://json-schema.org/draft-07/schema#", ...schema } },
+      resume: false,
+    })
+
+    yield* s.llm.push(TestLLM.tool("call-output", "StructuredOutput", { answer: "42" }))
+
+    yield* s.resume
+
+    expect(s.requests).toHaveLength(1)
+    expect(s.requests[0]?.toolChoice).toMatchObject({ type: "required" })
+    expect(s.requests[0]?.tools.find((tool) => tool.name === "StructuredOutput")?.inputSchema).toEqual(schema)
+    expect(s.requests[0]?.system.at(-1)?.text).toContain("StructuredOutput")
+    expect(yield* s.context).toMatchObject([
+      Expected.user("Answer briefly"),
+      Expected.assistant({ finish: "tool-calls" }, [
+        Expected.completedTool({ id: "call-output", name: "StructuredOutput" }, { input: { answer: "42" } }),
+      ]),
+    ])
+  })
+
   scenario("reloads a model switch before a tool-driven continuation step", function* (s) {
     yield* s.admit("Echo this")
 

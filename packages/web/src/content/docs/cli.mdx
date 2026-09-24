@@ -360,6 +360,15 @@ opencode serve
 opencode run --attach http://localhost:4096 "Explain async/await in JavaScript"
 ```
 
+Use `--output-schema` to request schema-constrained JSON output from the model. In the default format, stdout contains only the final structured JSON object.
+
+```bash
+opencode run --output-schema ./schema.json "Extract the invoice fields"
+opencode run --output-schema '{"type":"object","properties":{"answer":{"type":"string"}},"required":["answer"]}' "Answer briefly"
+```
+
+`--format json` prints the raw line-delimited CLI event stream. `--output-schema` asks the model to return a schema-constrained final value; combining both keeps the event stream and adds a final structured event.
+
 #### Flags
 
 | Flag                                     | Short | Description                                                                |
@@ -373,6 +382,7 @@ opencode run --attach http://localhost:4096 "Explain async/await in JavaScript"
 | <nobr><code>{"--agent"}</code></nobr>    |       | Agent to use                                                               |
 | <nobr><code>{"--file"}</code></nobr>     | `-f`  | File(s) to attach to message                                               |
 | <nobr><code>{"--format"}</code></nobr>   |       | Format: default (formatted) or json (raw JSON events)                      |
+| <nobr><code>{"--output-schema"}</code></nobr> |       | JSON schema file path or inline JSON schema for structured output          |
 | <nobr><code>{"--title"}</code></nobr>    |       | Title for the session (uses truncated prompt if no value provided)         |
 | <nobr><code>{"--attach"}</code></nobr>   |       | Attach to a running opencode server (e.g., http://localhost:4096)          |
 | <nobr><code>{"--password"}</code></nobr> | `-p`  | Basic auth password (defaults to `OPENCODE_SERVER_PASSWORD`)               |
