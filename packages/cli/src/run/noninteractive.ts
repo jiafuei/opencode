@@ -35,6 +35,7 @@ type Input = {
   variant?: string
   thinking: boolean
   format: "default" | "json"
+  outputSchema?: Record<string, unknown>
   auto: boolean
   /** True when the client is attached to a shared server rather than an exclusive in-process one. */
   attached: boolean
@@ -107,7 +108,8 @@ export async function runNonInteractivePrompt(input: Input) {
     if (emit("text", timestamp, { part })) return
     const text = part.text.trim()
     if (!text) return
-    if (!process.stdout.isTTY) {
+    // With --output-schema, stdout carries only the final structured JSON.
+    if (!process.stdout.isTTY && !input.outputSchema) {
       process.stdout.write(text + EOL)
       return
     }
@@ -673,6 +675,9 @@ export async function runNonInteractivePrompt(input: Input) {
     return {
       found: projected.found,
       responded: projected.messages.some((message) => message.type === "assistant"),
+      structured: projected.messages
+        .flatMap((message) => (message.type === "assistant" ? message.content : []))
+        .findLast((item) => item.type === "tool" && item.name === "StructuredOutput" && item.state.status === "completed"),
     }
   }
 
@@ -720,6 +725,7 @@ export async function runNonInteractivePrompt(input: Input) {
           id: messageID,
           text: [input.message, ...prepared.flatMap((file) => (file.text ? [file.text] : []))].join("\n\n"),
           files: prepared.flatMap((file) => (file.attachment ? [file.attachment] : [])),
+          format: input.outputSchema ? { type: "json_schema", schema: input.outputSchema } : undefined,
           delivery: "steer",
         },
         { signal: admission.signal },
@@ -779,6 +785,16 @@ export async function runNonInteractivePrompt(input: Input) {
       emittedError = true
       process.exitCode = 1
       if (!emit("error", Date.now(), { error })) UI.error(error.message)
+    }
+    if (input.outputSchema && !interrupted && !permissionRejected && !formCancelled && !emittedError) {
+      const structured = projected.structured?.type === "tool" ? projected.structured.state.input : undefined
+      if (structured === undefined) {
+        const error = { type: "structured-output", message: "Model did not produce structured output" }
+        process.exitCode = 1
+        if (!emit("error", Date.now(), { error })) UI.error(error.message)
+      } else if (!emit("structured", Date.now(), { structured })) {
+        process.stdout.write(JSON.stringify(structured) + EOL)
+      }
     }
   } finally {
     process.off("SIGINT", interrupt)

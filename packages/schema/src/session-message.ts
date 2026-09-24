@@ -70,6 +70,13 @@ export const LocationSwitched = Schema.Struct({
   }).pipe(optional),
 }).annotate({ identifier: "Session.Message.LocationSwitched" })
 
+/** Requests the final answer as JSON matching `schema`, returned through the StructuredOutput tool. */
+export interface OutputFormat extends Schema.Schema.Type<typeof OutputFormat> {}
+export const OutputFormat = Schema.Struct({
+  type: Schema.Literal("json_schema"),
+  schema: Schema.Record(Schema.String, Schema.Unknown),
+}).annotate({ identifier: "Session.Message.OutputFormat" })
+
 export interface User extends Schema.Schema.Type<typeof User> {}
 export const User = Schema.Struct({
   ...Base,
@@ -77,6 +84,7 @@ export const User = Schema.Struct({
   files: Prompt.fields.files,
   agents: Prompt.fields.agents,
   skills: Prompt.fields.skills,
+  format: OutputFormat.pipe(optional),
   type: Schema.tag("user"),
 }).annotate({ identifier: "Session.Message.User" })
 
