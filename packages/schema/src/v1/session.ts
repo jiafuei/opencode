@@ -62,15 +62,17 @@ export const ContentFilterError = namedError("ContentFilterError", {
   message: Schema.String,
 })
 
-export class OutputFormatText extends Schema.Class<OutputFormatText>("OutputFormatText")({
+export interface OutputFormatText extends Schema.Schema.Type<typeof OutputFormatText> {}
+export const OutputFormatText = Schema.Struct({
   type: Schema.Literal("text"),
-}) {}
+}).annotate({ identifier: "OutputFormatText" })
 
-export class OutputFormatJsonSchema extends Schema.Class<OutputFormatJsonSchema>("OutputFormatJsonSchema")({
+export interface OutputFormatJsonSchema extends Schema.Schema.Type<typeof OutputFormatJsonSchema> {}
+export const OutputFormatJsonSchema = Schema.Struct({
   type: Schema.Literal("json_schema"),
   schema: Schema.Record(Schema.String, Schema.Any).annotate({ identifier: "SessionV1.JSONSchema" }),
   retryCount: NonNegativeInt.pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed(2))),
-}) {}
+}).annotate({ identifier: "OutputFormatJsonSchema" })
 
 export const Format = Schema.Union([OutputFormatText, OutputFormatJsonSchema]).annotate({
   discriminator: "type",
