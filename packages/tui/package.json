@@ -94,6 +94,7 @@
     "effect": "catalog:",
     "fuzzysort": "catalog:",
     "get-east-asian-width": "catalog:",
+    "katex": "0.16.27",
     "open": "10.1.2",
     "opentui-spinner": "catalog:",
     "remeda": "catalog:",
@@ -105,6 +106,7 @@
   "devDependencies": {
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
+    "@types/katex": "0.16.7",
     "@typescript/native-preview": "catalog:"
   }
 }
