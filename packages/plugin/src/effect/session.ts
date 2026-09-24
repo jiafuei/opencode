@@ -135,6 +135,20 @@ export interface SessionRetry {
   decision: SessionRetryDecision
 }
 
+/**
+ * Called when estimated token usage would trigger automatic compaction. Set `action` to
+ * `continue` when the plugin will manage context on the next model request. Provider
+ * context-overflow recovery and manual compaction do not use this hook. Experimental.
+ */
+export interface SessionCompactionDecide {
+  readonly sessionID: Session.ID
+  readonly agent: Agent.ID
+  readonly model: Model.Ref
+  /** Estimated tokens the next request would send. */
+  readonly tokens: number
+  action: "compact" | "continue"
+}
+
 export interface SessionHooks {
   readonly prompt: SessionPrompt
   readonly context: SessionContext
@@ -148,6 +162,7 @@ export interface SessionHooks {
   readonly "experimental.ws.send": SessionWebSocketSend
   readonly "experimental.ws.receive": SessionWebSocketReceive
   readonly retry: SessionRetry
+  readonly "experimental.compaction.decide": SessionCompactionDecide
 }
 
 export type SessionDomain = Pick<
