@@ -404,6 +404,30 @@ it.live("compaction hooks supply the summary instead of provider compaction", ()
   }),
 )
 
+it.live("native compaction hooks send through the route and install their replacement", () =>
+  Effect.gen(function* () {
+    const fixture = yield* setup()
+    yield* fixture.prompt("Original user")
+    yield* fixture.hooks.register("session", "experimental.compaction.native", (event) =>
+      Effect.promise(async () => {
+        await event.send({ options: { safetyIdentifier: "native-hook" } })
+        event.result = {
+          replacement: [...event.retained, { role: "assistant", content: [{ type: "text", text: "plugin checkpoint" }] }],
+        }
+      }),
+    )
+    expect(yield* fixture.compact).toEqual({ status: "completed" })
+    expect(fixture.state.calls).toBe(1)
+    expect(fixture.bodies[0]).toMatchObject({ safety_identifier: "native-hook" })
+    expect(JSON.stringify(fixture.bodies[0])).not.toContain("compaction_trigger")
+    expect(fixture.headers[0]?.get("x-http-hook")).toBe("compaction")
+    expect(SessionProviderContext.decode(yield* fixture.checkpoint).map((message) => message.content)).toEqual([
+      [Message.text("Original user")],
+      [Message.text("plugin checkpoint")],
+    ])
+  }),
+)
+
 it.live("rejects request-hook route rewrites before provider compaction", () =>
   Effect.gen(function* () {
     const fixture = yield* setup()
