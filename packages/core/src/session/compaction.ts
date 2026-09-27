@@ -9,7 +9,9 @@ import {
   LLMClient,
   LLMEvent,
   LLMRequest,
+  LLMResponse,
   Message,
+  mergeProviderOptions,
   type ToolEntry,
   UnknownProviderError,
   type Usage,
@@ -18,10 +20,11 @@ import type { StreamOptions } from "@opencode/ai/route"
 import type { SessionCompactionResult } from "@opencode/plugin/effect/session"
 import type { SessionError } from "@opencode/schema/session-error"
 import { makeLocationNode } from "@opencode/util/effect/app-node"
-import { Context, Effect, Layer, Result, Stream } from "effect"
+import { Context, Effect, Layer, Result, Schema, Stream } from "effect"
 import { Bus } from "../bus.js"
 import { Database } from "../database/database.js"
 import { llmClient } from "../effect/app-node-platform.js"
+import { PluginHooks } from "../plugin/hooks.js"
 import { State } from "../state.js"
 import { Token } from "../util/token.js"
 import type { SessionContext } from "./context.js"
@@ -84,6 +87,7 @@ type Prepared = Effect.Success<ReturnType<SessionModelRequest.Interface["compact
 
 type Streamed = {
   readonly text: string
+  readonly response: LLMResponse.State
   readonly providerState?: SessionMessage.ProviderState
 }
 
@@ -185,6 +189,7 @@ export const layer = Layer.effect(
     const llm = yield* LLMClient.Service
     const db = (yield* Database.Service).db
     const requests = yield* SessionModelRequest.Service
+    const hooks = yield* PluginHooks.Service
 
     const state = State.create<Settings, Editor>({
       name: "session-compaction",
@@ -204,17 +209,6 @@ export const layer = Layer.effect(
       if (trigger.reason !== "manual" && !settings.auto) return { status: "skipped" }
       const ceiling = calculateCeiling(context.model.limit, settings.buffer)
       if (trigger.reason === "auto" && !due(context, ceiling)) return { status: "skipped" }
-      if (
-        trigger.reason === "auto" &&
-        (yield* requests.decideCompaction({
-          sessionID: context.session.id,
-          agent: context.agent.id,
-          model: context.model.ref,
-          tokens: estimateContext(context),
-          action: "compact",
-        })).action === "continue"
-      )
-        return { status: "skipped" }
       // An unknown window never triggers auto compaction, but the compaction request still needs a size to aim for.
       const cap = Number.isFinite(ceiling)
         ? ceiling
@@ -347,22 +341,71 @@ export const layer = Layer.effect(
           }),
         )
 
-      const send = (request: LLMRequest) => {
+      const retained = SessionHistory.load(db, context.session.id, "local").pipe(
+        Effect.orDie,
+        Effect.map((history) => recentUserMessages(history, context.model, keep)),
+      )
+      const run = Effect.runPromiseWith(yield* Effect.context<never>())
+
+      // Plugin backends run before the route's own operations and fall through when they set no result.
+      const send = Effect.fnUntraced(function* (request: LLMRequest) {
+        if (yield* hooks.has("session", "experimental.compaction.native", context.model.ref.providerID)) {
+          // A rejected `send` comes back as a hook defect, so its failure is kept to give `deliver` the original error.
+          // Any other plugin error fails the compaction without retrying.
+          let failed: AIError | Failure | undefined
+          const controller = new AbortController()
+          const event = yield* hooks
+            .trigger("session", "experimental.compaction.native", {
+              sessionID: context.session.id,
+              agent: context.agent.id,
+              model: context.model.ref,
+              messages: request.messages,
+              retained: yield* retained,
+              send: ({ options }) =>
+                run(
+                  stream(
+                    context,
+                    LLMRequest.update(request, {
+                      providerOptions: mergeProviderOptions(request.providerOptions, options),
+                    }),
+                    prepared.options,
+                  ).pipe(
+                    Effect.map((reply) => ({ content: reply.response.message.content })),
+                    Effect.tapError((error) => Effect.sync(() => (failed = error))),
+                  ),
+                  { signal: controller.signal },
+                ),
+            })
+            .pipe(
+              Effect.onInterrupt(() => Effect.sync(() => controller.abort())),
+              Effect.catchDefect((defect) =>
+                Effect.fail<AIError | Failure>(failed ?? { error: toSessionError(defect) }),
+              ),
+            )
+          if (event.result) {
+            const replacement = yield* Schema.decodeUnknownEffect(Schema.Array(Message))(
+              event.result.replacement,
+            ).pipe(Effect.orDie)
+            const tokens = event.result.tokens
+            yield* spend(
+              context.session.id,
+              tokens && { tokens, cost: SessionUsage.calculateCost(context.model.cost, tokens) },
+            )
+            return yield* toResult(replacement, undefined)
+          }
+        }
         if (LLMClient.canCompact(request, { mechanism: "trigger" })) {
-          return Effect.gen(function* () {
-            const history = yield* SessionHistory.load(db, context.session.id, "local").pipe(Effect.orDie)
-            const retained = recentUserMessages(history, context.model, keep)
-            const response = yield* llm.compact(request, { ...prepared.options, mechanism: "trigger" })
-            return yield* toResult([...retained, Message.assistant(response.checkpoint)], response.usage)
-          })
+          const response = yield* llm.compact(request, { ...prepared.options, mechanism: "trigger" })
+          return yield* toResult([...(yield* retained), Message.assistant(response.checkpoint)], response.usage)
         }
         if (LLMClient.canCompact(request)) {
-          return llm
-            .compact(request, { mechanism: "endpoint", http: prepared.options.http })
-            .pipe(Effect.flatMap((response) => toResult(response.replacement, response.usage)))
+          const response = yield* llm.compact(request, { mechanism: "endpoint", http: prepared.options.http })
+          return yield* toResult(response.replacement, response.usage)
         }
-        return unsupported(`Native compaction is not supported for ${request.model.provider}/${request.model.route.id}`)
-      }
+        return yield* unsupported(
+          `Native compaction is not supported for ${request.model.provider}/${request.model.route.id}`,
+        )
+      })
 
       return yield* deliver(trigger, prepared, "", budget, send)
     })
@@ -506,8 +549,9 @@ export const layer = Layer.effect(
 
       return llm.stream(request, options).pipe(
         Stream.runFoldEffect(
-          (): Streamed => ({ text: "" }),
-          (streamed, event): Effect.Effect<Streamed, AIError | Failure> => {
+          (): Streamed => ({ text: "", response: LLMResponse.empty() }),
+          (previous, event): Effect.Effect<Streamed, AIError | Failure> => {
+            const streamed = { ...previous, response: LLMResponse.reduce(previous.response, event) }
             if (LLMEvent.is.providerError(event)) {
               if (event.classification === undefined)
                 return unusable({ type: "provider.error", message: event.message })
@@ -673,7 +717,7 @@ export const layer = Layer.effect(
 export const node = makeLocationNode({
   service: Service,
   layer,
-  deps: [Bus.node, Database.node, llmClient, SessionModelRequest.node],
+  deps: [Bus.node, Database.node, llmClient, PluginHooks.node, SessionModelRequest.node],
 })
 
 /** History loads from the latest completed compaction, so a previous one is always the first message. */

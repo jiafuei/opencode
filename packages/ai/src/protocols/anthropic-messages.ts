@@ -1092,7 +1092,8 @@ const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (reques
 // Stream Parsing
 // =============================================================================
 const mapFinishReason = (reason: string | null | undefined): FinishReason => {
-  if (reason === "end_turn" || reason === "stop_sequence" || reason === "pause_turn") return "stop"
+  if (reason === "end_turn" || reason === "stop_sequence" || reason === "pause_turn" || reason === "compaction")
+    return "stop"
   if (reason === "max_tokens" || reason === "model_context_window_exceeded") return "length"
   if (reason === "tool_use") return "tool-calls"
   if (reason === "refusal") return "content-filter"
