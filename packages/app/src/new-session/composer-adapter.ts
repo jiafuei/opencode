@@ -13,6 +13,7 @@ import { type ServerSDK, useServerSDK } from "@/runtime/server/client"
 import { useTabs } from "@/shell/tabs/tabs"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { createWorktree } from "@/workspaces/create"
+import { containsDirectory } from "@opencode/util/path"
 import { showToast } from "@/shell/notifications/toast"
 import { SessionRouteKey, SessionStateKey } from "@/runtime/server/scope"
 import { clearSessionMessageHandoff, setSessionMessageHandoff } from "@/session/handoff"
@@ -47,7 +48,9 @@ export function createNewSessionComposerAdapter(props: {
     async start(selection, submission, message) {
       const draftID = props.draftID
       const currentDirectory = location().directory
-      const projectDirectory = data.location.info({ directory: currentDirectory })?.project.canonical ?? currentDirectory
+      const canonical = data.location.info({ directory: currentDirectory })?.project.canonical ?? currentDirectory
+      // Keep subdirectories of the main checkout (monorepo packages); only redirect from other worktrees
+      const projectDirectory = containsDirectory(canonical, currentDirectory) ? currentDirectory : canonical
       const worktree = props.worktree()
       const branch = props.branch()
       const mcp = props.mcp.capture()
