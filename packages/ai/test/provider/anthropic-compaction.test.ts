@@ -150,6 +150,62 @@ for (const model of [
   }
 }
 
+const signed = { type: "compaction", content: "Summary of the conversation", signature: "sig" }
+testEffect(
+  dynamicResponse(({ request, text, respond }) =>
+    Effect.sync(() => {
+      const body = JSON.parse(text)
+      const betas = request.headers["anthropic-beta"]!.split(",")
+      expect(betas).toContain("compact-2026-09-04")
+      expect(betas).not.toContain("compact-2026-01-12")
+      if (body.messages.length === 1) expect(body.compaction).toEqual({ type: "summarize", instructions: "Keep paths." })
+      else {
+        expect(body.messages[0].content).toEqual([signed])
+        expect(body.compaction).toBeUndefined()
+      }
+      return respond(
+        sseEvents(
+          { type: "message_start", message: { usage: { input_tokens: 0, output_tokens: 0 } } },
+          { type: "content_block_start", index: 0, content_block: signed },
+          { type: "content_block_stop", index: 0 },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "compaction" },
+            usage: { iterations: [{ type: "compaction", input_tokens: 700, output_tokens: 40 }] },
+          },
+          { type: "message_stop" },
+        ),
+        { headers: { "content-type": "text/event-stream" } },
+      )
+    }),
+  ),
+).effect("replays an on-demand compaction block with its signature", () =>
+  Effect.gen(function* () {
+    const model = Anthropic.configure({ apiKey: "test" }).model("claude-opus-5-5")
+    const request = LLM.request({
+      model,
+      prompt: "hello",
+      providerOptions: { compaction: { type: "summarize", instructions: "Keep paths." } },
+    })
+    const first = yield* LLMClient.generate(request)
+    expect(first.finishReason.raw).toBe("compaction")
+    expect(first.usage?.inputTokens).toBe(700)
+    const codec = Schema.fromJsonString(Message)
+    const message = Schema.decodeSync(codec)(Schema.encodeSync(codec)(first.message))
+    expect(message.content).toEqual([
+      {
+        type: "compaction",
+        provider: model.provider,
+        text: signed.content,
+        providerMetadata: { anthropic: { signature: "sig" } },
+      },
+    ])
+    yield* LLMClient.generate(
+      LLMRequest.update(request, { providerOptions: {}, messages: [message, Message.user("continue")] }),
+    )
+  }),
+)
+
 for (const events of [
   [{ type: "content_block_start", index: 0, content_block: { type: "compaction", content: 42 } }],
   [{ type: "content_block_delta", index: 0, delta: { type: "compaction_delta", content: "no start" } }],

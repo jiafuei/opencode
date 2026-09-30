@@ -76,6 +76,12 @@ export const ContextManagement = Schema.Struct({
 })
 export type ContextManagement = typeof ContextManagement.Type
 
+/** On-demand compaction: the response is a single signed compaction block and no reply. */
+export const Compaction = Schema.Struct({
+  type: Schema.Literal("summarize"),
+  instructions: Schema.optional(Schema.String),
+})
+
 // =============================================================================
 // Request Body Schema
 // =============================================================================
@@ -227,6 +233,7 @@ type AnthropicUserBlock = Schema.Schema.Type<typeof AnthropicUserBlock>
 const AnthropicCompactionBlock = Schema.Struct({
   type: Schema.Literal("compaction"),
   content: Schema.NullOr(Schema.String),
+  signature: Schema.optional(Schema.String),
 })
 const AnthropicAssistantBlock = Schema.Union([
   AnthropicCompactionBlock,
@@ -343,6 +350,8 @@ const OutputConfigInput = Schema.Struct({
 const Options = Schema.Struct({
   /** Advanced in-band compaction. The caller owns checkpoint persistence and recovery. */
   contextManagement: Schema.optional(ContextManagement),
+  /** On-demand compaction. The caller replaces the summarized messages with the returned block. */
+  compaction: Schema.optional(Compaction),
   thinking: Schema.optional(Thinking),
   effort: Schema.optional(Schema.String),
   service_tier: Schema.optional(AnthropicServiceTier),
@@ -371,6 +380,7 @@ const AnthropicBodyFields = {
       ),
     }),
   ),
+  compaction: Schema.optional(Compaction),
   model: Schema.String,
   system: optionalArray(AnthropicTextBlock),
   messages: Schema.Array(AnthropicMessage),
@@ -477,7 +487,7 @@ type AnthropicEvent = Schema.Schema.Type<typeof AnthropicEvent>
 
 interface ParserState {
   readonly provider: LLMRequest["model"]["provider"]
-  readonly compactions: Readonly<Record<number, string | null>>
+  readonly compactions: Readonly<Record<number, { readonly content: string | null; readonly signature?: string }>>
   readonly providerMetadataKey: string
   readonly tools: ToolStream.State<number>
   readonly reasoningSignatures: Readonly<Record<number, string>>
@@ -916,7 +926,11 @@ const lowerMessages = Effect.fn("AnthropicMessages.lowerMessages")(function* (
         if (part.type === "compaction") {
           if (part.provider !== request.model.provider || part.text === undefined)
             return yield* invalid("Compaction state must be replayed to its originating provider and API")
-          content.push({ type: "compaction", content: part.text })
+          content.push({
+            type: "compaction",
+            content: part.text,
+            signature: signatureFromMetadata(part.providerMetadata, providerMetadataKey),
+          })
           continue
         }
         if (part.type === "text") {
@@ -1073,6 +1087,7 @@ const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (reques
     inference_geo: options.inference_geo ?? options.inferenceGeo ?? undefined,
     metadata: options.metadata,
     service_tier: options.service_tier ?? options.serviceTier,
+    compaction: options.compaction,
   }
   if (!management) return body
   return {
@@ -1311,7 +1326,13 @@ const onContentBlockDelta = Effect.fn("AnthropicMessages.onContentBlockDelta")(f
     if (event.index === undefined || !(event.index in state.compactions) || delta.content === undefined)
       return yield* ProviderShared.eventError(ADAPTER, "Compaction delta is missing its block or content")
     return [
-      { ...state, compactions: { ...state.compactions, [event.index]: delta.content } },
+      {
+        ...state,
+        compactions: {
+          ...state.compactions,
+          [event.index]: { ...state.compactions[event.index]!, content: delta.content },
+        },
+      },
       NO_EVENTS,
     ] satisfies StepResult
   }
@@ -1375,13 +1396,17 @@ const onContentBlockStop = Effect.fn("AnthropicMessages.onContentBlockStop")(fun
 ) {
   if (event.index === undefined) return [state, NO_EVENTS] satisfies StepResult
   if (event.index in state.compactions) {
-    const { [event.index]: content, ...compactions } = state.compactions
+    const { [event.index]: block, ...compactions } = state.compactions
     const events: LLMEvent[] = []
     const lifecycle = Lifecycle.stepStart(state.lifecycle, events)
     events.push(
       LLMEvent.compaction({
         provider: state.provider,
-        text: content,
+        text: block!.content,
+        providerMetadata:
+          block!.signature === undefined
+            ? undefined
+            : providerMetadata(state.providerMetadataKey, { signature: block!.signature }),
       }),
     )
     return [{ ...state, compactions, lifecycle }, events] satisfies StepResult
@@ -1534,7 +1559,13 @@ const step = (state: ParserState, event: AnthropicEvent) => {
       const decoded = Schema.decodeUnknownOption(AnthropicCompactionBlock)(event.content_block)
       if (event.index === undefined || Option.isNone(decoded)) return invalidStreamEvent(event)
       return Effect.succeed<StepResult>([
-        { ...state, compactions: { ...state.compactions, [event.index]: decoded.value.content } },
+        {
+          ...state,
+          compactions: {
+            ...state.compactions,
+            [event.index]: { content: decoded.value.content, signature: decoded.value.signature },
+          },
+        },
         NO_EVENTS,
       ])
     }
@@ -1600,7 +1631,7 @@ export const protocol = Protocol.make({
 })
 
 export const transport = <
-  Body extends Pick<AnthropicMessagesBody, "messages" | "context_management" | "thinking">,
+  Body extends Pick<AnthropicMessagesBody, "messages" | "context_management" | "compaction" | "thinking">,
 >() => {
   const http = HttpTransport.httpJson<Body, string>({ framing })
   return {
@@ -1627,16 +1658,18 @@ export const transport = <
   }
 }
 
-function requiredBetaHeaders(body: Pick<AnthropicMessagesBody, "messages" | "context_management" | "thinking">) {
+function requiredBetaHeaders(body: Pick<AnthropicMessagesBody, "messages" | "context_management" | "compaction" | "thinking">) {
   // Always request interleaved thinking. The API accepts the header on any
   // model and ignores it where unsupported, while manual-thinking models need
   // it for thinking between tool calls.
   const betas: string[] = ["interleaved-thinking-2025-05-14"]
-  const requestsCompaction = (body.context_management?.edits.length ?? 0) > 0
-  const replaysCompaction = body.messages.some((message) =>
-    message.content.some((block) => block.type === "compaction"),
+  // Threshold compaction blocks are unsigned; on-demand blocks carry a signature and their own beta.
+  const replayed = body.messages.flatMap((message) =>
+    message.content.flatMap((block) => (block.type === "compaction" ? [block] : [])),
   )
-  if (requestsCompaction || replaysCompaction) betas.push("compact-2026-01-12")
+  if ((body.context_management?.edits.length ?? 0) > 0 || replayed.some((block) => block.signature === undefined))
+    betas.push("compact-2026-01-12")
+  if (body.compaction || replayed.some((block) => block.signature !== undefined)) betas.push("compact-2026-09-04")
 
   if (body.messages.some((message) => message.role === "system" && message.output_config !== undefined))
     betas.push("mid-conversation-output-config-2026-07-01")
