@@ -1034,9 +1034,10 @@ const fitThinking = (thinking: AnthropicThinking | undefined, maxTokens: number)
       }
     : thinking
 
+const REPLAY_TRIGGER = 1_000_000
+
 const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (request: LLMRequest) {
   const options = yield* decodeOptions(request.providerOptions ?? {})
-  const management = options.contextManagement
   const outputConfig = options.output_config ?? options.outputConfig
   const format = outputConfig?.format ?? undefined
   const updates = resolveEffortUpdates(request, options.effort ?? outputConfig?.effort ?? undefined)
@@ -1059,6 +1060,16 @@ const fromRequest = Effect.fn("AnthropicMessages.fromRequest")(function* (reques
           cache_control: cacheControl(breakpoints, part.cache),
         }))
   const messages = yield* lowerMessages(flattened.request, breakpoints)
+  // Anthropic rejects a replayed threshold block unless the request carries the threshold strategy. Its trigger is
+  // out of reach, so replay never compacts in-band and the caller keeps deciding when to compact.
+  const replaysThreshold = messages.some((message) =>
+    message.content.some((block) => block.type === "compaction" && block.signature === undefined),
+  )
+  const management =
+    options.contextManagement ??
+    (replaysThreshold
+      ? { edits: [{ type: "compact_20260112" as const, trigger: { type: "input_tokens" as const, value: REPLAY_TRIGGER } }] }
+      : undefined)
   if (breakpoints.dropped > 0) {
     yield* Effect.logWarning(
       `Anthropic Messages: dropped ${breakpoints.dropped} cache breakpoint(s); the API allows at most ${ANTHROPIC_BREAKPOINT_CAP} per request.`,
