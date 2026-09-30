@@ -200,6 +200,8 @@ const compactionPartSchema = Schema.Struct({
   encrypted: Schema.optional(Schema.String),
   /** Null means the provider failed to produce a summary; prior history must be retained. */
   text: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Provider data replayed with the summary, such as Anthropic's block signature. */
+  providerMetadata: Schema.optional(ProviderMetadata),
 })
   .pipe(
     Schema.refine(
