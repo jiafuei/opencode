@@ -1695,9 +1695,7 @@ export const route = Route.make({
   provider: "anthropic",
   providerMetadataKey: "anthropic",
   protocol,
-  endpoint: Endpoint.path((input) => (input.request.model.provider === "anthropic" ? `${PATH}?beta=true` : PATH), {
-    baseURL: DEFAULT_BASE_URL,
-  }),
+  endpoint: Endpoint.path(PATH, { baseURL: DEFAULT_BASE_URL }),
   auth: Auth.none,
   transport: transport<AnthropicMessagesBody>(),
   headers: () => ({ "anthropic-version": "2023-06-01" }),
