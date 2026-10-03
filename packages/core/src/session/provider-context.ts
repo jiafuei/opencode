@@ -48,9 +48,9 @@ export const isCheckpoint = (
  * Provider and attachment metadata can contain optional undefined entries, which the Schema JSON
  * codec rejects, so use JSON's omission semantics; `Media.Asset.toJSON` keeps binary media as base64.
  */
-export const encode = (provenance: Provenance, replacement: ReadonlyArray<Message>): Info => ({
+export const encode = (provenance: Provenance | undefined, replacement: ReadonlyArray<Message>): Info => ({
   version: 1,
-  provenance,
+  ...(provenance ? { provenance } : {}),
   messages: Schema.decodeSync(Schema.fromJsonString(Schema.Json))(JSON.stringify(replacement)),
 })
 

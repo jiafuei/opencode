@@ -323,21 +323,25 @@ export const layer = Layer.effect(
       const prepared = yield* prepare(context, context.messages, budget, "session")
 
       // History is selected before request hooks, so a hook that reroutes the request cannot be honored here.
+      // Plugin windows are plain messages that any model replays, so only the route's own operations need this.
       const provenance = SessionProviderContext.provenance(context.model)
-      if (!provenance) return yield* unsupported("Provider compaction requires a stable, configured endpoint")
       const routed = SessionProviderContext.provenance({ model: prepared.request.model, ref: context.model.ref })
-      if (!SessionProviderContext.compatible(provenance, routed)) {
-        return yield* unsupported(
-          "Provider compaction requires the endpoint in provider/model settings, not a model.request rewrite",
-        )
-      }
+      const unstable = !provenance
+        ? "Provider compaction requires a stable, configured endpoint"
+        : !SessionProviderContext.compatible(provenance, routed)
+          ? "Provider compaction requires the endpoint in provider/model settings, not a model.request rewrite"
+          : undefined
 
-      const toResult = (window: ReadonlyArray<Message>, usage: Usage | undefined) =>
+      const toResult = (
+        window: ReadonlyArray<Message>,
+        usage: Usage | undefined,
+        source: SessionProviderContext.Provenance | undefined,
+      ) =>
         spend(context.session.id, usage && SessionUsage.record(usage, context.model.cost)).pipe(
           Effect.as<Result>({
             text: "",
             recent: "",
-            providerContext: SessionProviderContext.encode(provenance, window),
+            providerContext: SessionProviderContext.encode(source, window),
           }),
         )
 
@@ -391,16 +395,21 @@ export const layer = Layer.effect(
               context.session.id,
               tokens && { tokens, cost: SessionUsage.calculateCost(context.model.cost, tokens) },
             )
-            return yield* toResult(replacement, undefined)
+            return yield* toResult(replacement, undefined, undefined)
           }
         }
+        if (unstable) return yield* unsupported(unstable)
         if (LLMClient.canCompact(request, { mechanism: "trigger" })) {
           const response = yield* llm.compact(request, { ...prepared.options, mechanism: "trigger" })
-          return yield* toResult([...(yield* retained), Message.assistant(response.checkpoint)], response.usage)
+          return yield* toResult(
+            [...(yield* retained), Message.assistant(response.checkpoint)],
+            response.usage,
+            provenance,
+          )
         }
         if (LLMClient.canCompact(request)) {
           const response = yield* llm.compact(request, { mechanism: "endpoint", http: prepared.options.http })
-          return yield* toResult(response.replacement, response.usage)
+          return yield* toResult(response.replacement, response.usage, provenance)
         }
         return yield* unsupported(
           `Native compaction is not supported for ${request.model.provider}/${request.model.route.id}`,
