@@ -286,6 +286,7 @@ export const OpenAIPlugin = define({
           const minor = Number(match?.[2] ?? 0)
           if (
             !codexAllowed.has(apiID) &&
+            !apiID.startsWith("gpt-daybreak") &&
             (codexDisallowed.has(apiID) || !match || !(major > 5 || (major === 5 && minor > 4)))
           ) {
             draft.enabled = false
