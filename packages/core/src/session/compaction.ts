@@ -323,7 +323,7 @@ export const layer = Layer.effect(
       const prepared = yield* prepare(context, context.messages, budget, "session")
 
       // History is selected before request hooks, so a hook that reroutes the request cannot be honored here.
-      // Plugin windows are plain messages that any model replays, so only the route's own operations need this.
+      // Plugin windows of plain messages replay on any model, so they need no endpoint identity.
       const provenance = SessionProviderContext.provenance(context.model)
       const routed = SessionProviderContext.provenance({ model: prepared.request.model, ref: context.model.ref })
       const unstable = !provenance
@@ -395,7 +395,10 @@ export const layer = Layer.effect(
               context.session.id,
               tokens && { tokens, cost: SessionUsage.calculateCost(context.model.cost, tokens) },
             )
-            return yield* toResult(replacement, undefined, undefined)
+            // Provider compaction items replay only where they were made; plain messages are model-neutral.
+            const opaque = replacement.some((message) => message.content.some((part) => part.type === "compaction"))
+            if (opaque && unstable) return yield* unsupported(unstable)
+            return yield* toResult(replacement, undefined, opaque ? provenance : undefined)
           }
         }
         if (unstable) return yield* unsupported(unstable)
