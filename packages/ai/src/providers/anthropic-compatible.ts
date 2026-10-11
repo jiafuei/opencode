@@ -47,7 +47,8 @@ export const configure = (input: Config) => {
   const route = (provider === "anthropic" ? AnthropicMessages.route : compatibleRoute).with({
     ...rest,
     provider,
-    endpoint: { baseURL },
+    // A static path keeps the endpoint a stable identity for native compaction checkpoints.
+    endpoint: provider === "anthropic" ? { baseURL, query: { beta: "true" } } : { baseURL },
     auth: auth(input),
   })
   return {
