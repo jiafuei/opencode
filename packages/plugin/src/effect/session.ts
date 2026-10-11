@@ -1,5 +1,5 @@
 import type { ExperimentalSessionApi, SessionApi } from "@opencode/client/effect/api"
-import type { GenerationOptionsFields, Message, SystemPart } from "@opencode/ai/effect"
+import type { ContentPart, GenerationOptionsFields, Message, SystemPart } from "@opencode/ai/effect"
 import type { Agent } from "@opencode/schema/agent"
 import type { Model } from "@opencode/schema/model"
 import type { PromptInput } from "@opencode/schema/prompt-input"
@@ -172,6 +172,33 @@ export interface SessionIdle {
   readonly background: ReadonlyArray<SessionIdleBackground>
 }
 
+export interface SessionCompactionNativeResult {
+  /** The replacement window. Core decodes it through the Message schema, so plain objects are fine. */
+  replacement: ReadonlyArray<unknown>
+  /** Only for backends that did not use `send`, whose usage core already recorded. */
+  tokens?: TokenUsage.Info
+}
+
+/**
+ * Runs for native compaction before the route's own compaction operation. Set `result` to install a
+ * replacement window; leave it unset to fall through to the route. Experimental.
+ */
+export interface SessionCompactionNative {
+  readonly sessionID: Session.ID
+  readonly agent: Agent.ID
+  readonly model: Model.Ref
+  /** The conversation to compact, as it would be sent after `compaction` hooks. */
+  readonly messages: ReadonlyArray<Message>
+  /** Whole recent user messages within the keep allowance, for backends whose checkpoint must follow them. */
+  readonly retained: ReadonlyArray<Message>
+  /**
+   * Sends the conversation through the session's route (auth, HTTP and WebSocket hooks) with `options`
+   * merged into its provider options, and returns the response content. Core records its usage.
+   */
+  readonly send: (input: { options: Record<string, unknown> }) => Promise<{ content: ReadonlyArray<ContentPart> }>
+  result?: SessionCompactionNativeResult
+}
+
 export interface SessionHooks {
   readonly prompt: SessionPrompt
   readonly context: SessionContext
@@ -186,6 +213,7 @@ export interface SessionHooks {
   readonly "experimental.ws.receive": SessionWebSocketReceive
   readonly retry: SessionRetry
   readonly "experimental.idle": SessionIdle
+  readonly "experimental.compaction.native": SessionCompactionNative
 }
 
 export type SessionDomain = Pick<

@@ -19,6 +19,7 @@ import { Integration } from "./integration.js"
 import { Capabilities, ID, Info, Model, Ref, VariantID } from "./model.js"
 import type { RuntimeInfo } from "./model.js"
 import { Npm } from "@opencode/util/npm"
+import { PluginHooks } from "./plugin/hooks.js"
 import { Provider } from "./provider.js"
 
 export class VariantUnavailableError extends Schema.TaggedError<VariantUnavailableError>()(
@@ -190,6 +191,8 @@ export const withVariant = (
 export interface Dependencies {
   readonly loadPackage?: (specifier: string) => Effect.Effect<Provider.ProviderPackage, Provider.LoadError>
   readonly loadAISDK?: (model: RuntimeInfo) => Effect.Effect<LanguageModel, AISDK.InitError>
+  /** A plugin provides native compaction for the model's provider. */
+  readonly pluginCompaction?: boolean
 }
 
 export const fromCatalogModel = (
@@ -210,6 +213,7 @@ export const fromCatalogModel = (
       // Reject provider compaction policies up front so the misconfiguration surfaces before any step runs.
       if (
         model.settings?.compaction?.type !== "native" ||
+        dependencies?.pluginCompaction ||
         resolved.route.compact?.trigger ||
         resolved.route.compact?.endpoint
       )
@@ -446,6 +450,7 @@ export const layer = Layer.effect(
     const integrations = yield* Integration.Service
     const npm = yield* Npm.Service
     const aisdk = yield* AISDK.Service
+    const hooks = yield* PluginHooks.Service
     const dependencies: Dependencies = {
       loadPackage: (specifier) => Provider.loadPackage(specifier, npm),
       loadAISDK: (model) => aisdk.model(model),
@@ -465,7 +470,10 @@ export const layer = Layer.effect(
     })
     const load = Effect.fn("ModelResolver.resolveModel")(function* (selected: Info, variant?: VariantID) {
       const { provider, credential, runtimeInfo } = yield* prepare(selected, variant)
-      const model = yield* fromCatalogModel(runtimeInfo, credential, dependencies)
+      const model = yield* fromCatalogModel(runtimeInfo, credential, {
+        ...dependencies,
+        pluginCompaction: yield* hooks.has("session", "experimental.compaction.native", selected.providerID),
+      })
       const runtime =
         provider?.activation === "enabled" &&
         credential === undefined &&
@@ -579,5 +587,5 @@ function usesAPIKeyAuth(packageName: string | undefined) {
 export const node = makeLocationNode({
   service: Service,
   layer,
-  deps: [Provider.node, Model.node, Integration.node, Npm.node, AISDK.node],
+  deps: [Provider.node, Model.node, Integration.node, Npm.node, AISDK.node, PluginHooks.node],
 })

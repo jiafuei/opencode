@@ -22,9 +22,10 @@ const decodeStoredUser = Schema.decodeUnknownEffect(SessionStored.User)
 const decodeMedia = Schema.decodeUnknownEffect(SessionMessage.MediaInfo)
 
 /**
- * Which completed compactions bound a history read. Local summaries always do. Native
- * windows do for model-neutral readers (`latest`), never for the original transcript
- * (`local`), and only when the target model can replay them.
+ * Which completed compactions bound a history read. Local summaries and model-neutral native
+ * windows (`native.neutral`) always do. Other native windows do for model-neutral readers
+ * (`latest`), never for the original transcript (`local`), and only when the target model can
+ * replay them.
  */
 export type Boundary = "latest" | "local" | Model.Ref
 
@@ -39,14 +40,16 @@ export const NativeWindow = Schema.toCodecJson(Schema.Array(Message))
 const decodeNativeWindow = Schema.decodeUnknownOption(NativeWindow)
 const decodesWindow = (messages: unknown) => Option.isSome(decodeNativeWindow(messages))
 
-// Like other native data, a window only replays on the model that made it. One that no longer decodes, for example
-// a malformed one from a compaction hook, is skipped the same way instead of failing the session.
+// Like other native data, a window only replays on the model that made it, unless a plugin made it of plain messages.
+// One that no longer decodes, for example a malformed one from a compaction hook, is skipped the same way instead of
+// failing the session.
 const replayable = (message: SessionMessage.Info, boundary: Boundary) =>
   !isNativeCompaction(message) ||
   boundary === "latest" ||
-  (boundary !== "local" &&
-    message.model?.providerID === boundary.providerID &&
-    message.model.id === boundary.id &&
+  ((message.native.neutral === true ||
+    (boundary !== "local" &&
+      message.model?.providerID === boundary.providerID &&
+      message.model.id === boundary.id)) &&
     decodesWindow(message.native.messages))
 
 const latestCompaction = Effect.fnUntraced(function* (
@@ -69,6 +72,7 @@ const latestCompaction = Effect.fnUntraced(function* (
           : or(
               // Rows written before v2.1 hold the window in `providerContext`.
               sql`coalesce(json_extract(${SessionMessageTable.data}, '$.native.messages'), json_extract(${SessionMessageTable.data}, '$.providerContext')) is null`,
+              sql`json_extract(${SessionMessageTable.data}, '$.native.neutral') = 1`,
               boundary === "local"
                 ? undefined
                 : and(
