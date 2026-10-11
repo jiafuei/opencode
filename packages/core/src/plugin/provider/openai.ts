@@ -288,7 +288,10 @@ export const OpenAIPlugin = define({
           const match = apiID.match(/^gpt-(\d+)(?:\.(\d+))?/)
           const major = Number(match?.[1])
           const minor = Number(match?.[2] ?? 0)
-          if (codexDisallowed.has(apiID) || !match || !(major > 5 || (major === 5 && minor > 5))) {
+          if (
+            !apiID.startsWith("gpt-daybreak") &&
+            (codexDisallowed.has(apiID) || !match || !(major > 5 || (major === 5 && minor > 5)))
+          ) {
             draft.enabled = false
             return
           }
