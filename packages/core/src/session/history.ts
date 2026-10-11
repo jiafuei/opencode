@@ -14,15 +14,17 @@ type DatabaseService = Database.Interface["db"]
 const decode = Schema.decodeUnknownEffect(SessionMessage.Info)
 
 /**
- * Which completed compactions bound a history read. Local summaries always do. Native
- * windows do for model-neutral readers (`latest`), never for the original transcript
- * (`local`), and only when the target model can replay them (a provenance).
+ * Which completed compactions bound a history read. Local summaries and model-neutral native
+ * windows (no provenance) always do. Other native windows do for model-neutral readers (`latest`),
+ * never for the original transcript (`local`), and only when the target model can replay them
+ * (a provenance).
  */
 export type Boundary = "latest" | "local" | SessionProviderContext.Provenance
 
 const replayable = (message: SessionMessage.Info, boundary: Boundary) =>
   !SessionProviderContext.isCheckpoint(message) ||
   boundary === "latest" ||
+  message.providerContext.provenance === undefined ||
   (boundary !== "local" && SessionProviderContext.compatible(message.providerContext.provenance, boundary))
 
 export const latestCompaction = Effect.fnUntraced(function* (
@@ -41,7 +43,7 @@ export const latestCompaction = Effect.fnUntraced(function* (
         boundary === "latest"
           ? undefined
           : or(
-              sql`json_extract(${SessionMessageTable.data}, '$.providerContext') is null`,
+              sql`json_extract(${SessionMessageTable.data}, '$.providerContext.provenance') is null`,
               boundary === "local"
                 ? undefined
                 : and(

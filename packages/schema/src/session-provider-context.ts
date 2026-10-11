@@ -15,10 +15,13 @@ export const Provenance = Schema.Struct({
   endpoint: Schema.String,
 }).annotate({ identifier: "Session.ProviderContext.Provenance" })
 
-/** Core validates the versioned canonical AI Message[] payload on installation and replay. */
+/**
+ * Core validates the versioned canonical AI Message[] payload on installation and replay. A window
+ * without provenance is model-neutral (a plugin compaction's plain messages), so every model replays it.
+ */
 export interface Info extends Schema.Schema.Type<typeof Info> {}
 export const Info = Schema.Struct({
   version: Schema.Literal(1),
-  provenance: Provenance,
+  provenance: Schema.optional(Provenance),
   messages: Schema.Json,
 }).annotate({ identifier: "Session.ProviderContext" })
