@@ -14,6 +14,7 @@ import { toolFiletype, toolStructuredFinal } from "./tool"
 import { RUN_THEME_FALLBACK, transparent, type RunTheme } from "./theme"
 import type { EntryLayout, RunEntryBody, ScrollbackOptions, StreamCommit, TurnSummary } from "./types"
 import { PatchDiff } from "../component/patch-diff"
+import { transformMathSource } from "../latex"
 
 export function entryGroupKey(commit: StreamCommit): string | undefined {
   if (!commit.partID) {
@@ -264,7 +265,7 @@ export function RunEntryContent(props: {
               width="100%"
               syntaxStyle={syntax()}
               streaming={streaming()}
-              content={markdown()!.content}
+              content={transformMathSource(markdown()!.content)}
               fg={color()}
               tableOptions={mono ? monoMarkdownTableOptions : { widthMode: "content" }}
             />
