@@ -682,6 +682,7 @@ const layer = Layer.effectDiscard(
             files: input.payload.files,
             agents: input.payload.agents,
             skills: input.payload.skills,
+            format: input.payload.format,
             time,
           })
         if (input.type === "synthetic")
