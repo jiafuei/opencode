@@ -30,6 +30,7 @@ import { SessionStep } from "./step.js"
 import { ToolOutput } from "../../tool-output.js"
 import { Plugin } from "../../plugin.js"
 import { MAX_STEPS_PROMPT } from "./max-steps.js"
+import * as StructuredOutput from "./structured-output.js"
 
 const CONTINUE_AFTER_INCOMPLETE_STREAM =
   "The previous response was interrupted. Continue from where you left off without repeating completed content."
@@ -219,10 +220,17 @@ const layer = Layer.effect(
         }
         yield* compaction.precompute(Effect.succeed(loaded))
         const stepLimitReached = loaded.agent.info.steps !== undefined && step >= loaded.agent.info.steps
+        const format = loaded.messages.findLast((message) => message.type === "user")?.format
+        let structured = false
+        const tools = format
+          ? StructuredOutput.withTool(loaded.tools, format.schema, () => {
+              structured = true
+            })
+          : loaded.tools
         const transcript = SessionModelRequest.baseTranscript({
           agent: loaded.agent.info,
           model: loaded.model,
-          tools: loaded.tools,
+          tools,
           initial: loaded.initial,
           messages: loaded.messages,
         })
@@ -230,13 +238,13 @@ const layer = Layer.effect(
           session: loaded.session,
           agent: loaded.agent.id,
           model: loaded.model,
-          tools: loaded.tools,
-          system: transcript.system,
+          tools,
+          system: format ? [...transcript.system, StructuredOutput.SYSTEM] : transcript.system,
           messages: stepLimitReached
             ? [...transcript.messages, Message.assistant(MAX_STEPS_PROMPT)]
             : transcript.messages,
           // Keep tool definitions on the final Step to preserve the provider's cached prefix.
-          toolChoice: stepLimitReached ? "none" : undefined,
+          toolChoice: stepLimitReached ? "none" : format ? "required" : undefined,
           webSocket: "session",
           inputTokens: SessionCompaction.estimatePrompt(loaded),
         })
@@ -267,12 +275,14 @@ const layer = Layer.effect(
         })
         const completed = yield* SessionStep.Outcome.$match(outcome, {
           Completed: Effect.fnUntraced(function* (outcome) {
+            // The StructuredOutput call is the final answer, so it ends the turn.
+            const needsContinuation = outcome.needsContinuation && !structured
             // The Session is about to go idle, which leaves the background summary time to finish.
-            if (!outcome.needsContinuation)
+            if (!needsContinuation)
               yield* compaction.precompute(
                 store.context(sessionID).pipe(Effect.map((messages) => ({ ...loaded, messages }))),
               )
-            return outcome.needsContinuation
+            return needsContinuation
           }),
           Retry: (outcome) =>
             retry.wait({

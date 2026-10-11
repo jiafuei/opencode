@@ -92,6 +92,8 @@ export type SkillID = string
 
 export type SkillName = string
 
+export type SessionMessageOutputFormat = { type: "json_schema"; schema: { [x: string]: JsonValue } }
+
 export type ShellID = string
 
 export type SessionMessageNative = { [x: string]: JsonValue }
@@ -137,6 +139,8 @@ export type WorkspaceID = string
 export type InstructionKey = string
 
 export type InstructionHash = string
+
+export type SessionMessageOutputFormat1 = { type: "json_schema"; schema: { [x: string]: any } }
 
 export type SessionInboxSyntheticPayload1 = { text: string; description?: string; metadata?: { [x: string]: any } }
 
@@ -955,6 +959,7 @@ export type SessionMessageUser = {
   files?: Array<PromptFileAttachment>
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
+  format?: SessionMessageOutputFormat
   type: "user"
 }
 
@@ -964,6 +969,7 @@ export type SessionInboxUserPayload = {
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
   metadata?: { [x: string]: JsonValue }
+  format?: SessionMessageOutputFormat
 }
 
 export type SessionInboxUserPayload1 = {
@@ -972,6 +978,7 @@ export type SessionInboxUserPayload1 = {
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
   metadata?: { [x: string]: any }
+  format?: SessionMessageOutputFormat1
 }
 
 export type SessionMessageToolStateCompleted = {
@@ -3513,6 +3520,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["id"]
@@ -3534,6 +3542,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["text"]
@@ -3555,6 +3564,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["files"]
@@ -3576,6 +3586,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["agents"]
@@ -3597,6 +3608,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["skills"]
@@ -3618,9 +3630,32 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["metadata"]
+  readonly format?: {
+    readonly id?: string | null
+    readonly text: string
+    readonly files?: ReadonlyArray<{
+      readonly uri: string
+      readonly name?: string
+      readonly description?: string
+      readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
+    }>
+    readonly agents?: ReadonlyArray<{
+      readonly name: string
+      readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
+    }>
+    readonly skills?: ReadonlyArray<{
+      readonly id: string
+      readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
+    }>
+    readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
+    readonly delivery?: ("steer" | "queue") | null
+    readonly resume?: boolean | null
+  }["format"]
   readonly delivery?: {
     readonly id?: string | null
     readonly text: string
@@ -3639,6 +3674,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["delivery"]
@@ -3660,6 +3696,7 @@ export type SessionPromptInput = {
       readonly mention?: { readonly start: number; readonly end: number; readonly text: string }
     }>
     readonly metadata?: { readonly [x: string]: JsonValue }
+    readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } }
     readonly delivery?: ("steer" | "queue") | null
     readonly resume?: boolean | null
   }["resume"]
