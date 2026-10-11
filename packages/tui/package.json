@@ -66,6 +66,7 @@
     "effect": "catalog:",
     "fuzzysort": "catalog:",
     "get-east-asian-width": "catalog:",
+    "katex": "0.16.47",
     "remeda": "catalog:",
     "solid-js": "catalog:",
     "string-width": "catalog:",
@@ -74,6 +75,7 @@
   "devDependencies": {
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
+    "@types/katex": "0.16.7",
     "@typescript/native": "catalog:"
   }
 }
