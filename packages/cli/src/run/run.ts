@@ -23,6 +23,8 @@ export type RunCommandInput = {
   format: "default" | "json"
   file: string[]
   title?: string
+  /** Inline JSON schema or a path to one. */
+  outputSchema?: string
   thinking?: boolean
   auto?: boolean
 }
@@ -37,6 +39,7 @@ type Prepared = {
   directory?: string
   message: string
   files: FilePart[]
+  outputSchema?: Record<string, unknown>
 }
 
 type ExecutionOptions = {
@@ -76,7 +79,12 @@ async function run(input: RunCommandInput, options: ExecutionOptions) {
   const message = mergeInput(formatMessage(input.message), process.stdin.isTTY ? undefined : await readStdin())
   if (!message?.trim()) fail("You must provide a message")
   const files = await Promise.all(input.file.map((file) => prepareFile(file, root, options)))
-  const prepared = { directory, message, files }
+  const schema = input.outputSchema?.trim()
+  const outputSchema =
+    schema === undefined
+      ? undefined
+      : JSON.parse(schema.startsWith("{") ? schema : await Bun.file(path.resolve(root, schema)).text())
+  const prepared = { directory, message, files, outputSchema }
   return execute(input, prepared, input.server.endpoint, options)
 }
 
@@ -145,6 +153,7 @@ async function execute(input: RunCommandInput, prepared: Prepared, endpoint: End
     variant,
     thinking: input.thinking ?? false,
     format: input.format,
+    outputSchema: prepared.outputSchema,
     auto: input.auto ?? false,
     attached: options.attached ?? true,
     compatibility: options.compatibility,

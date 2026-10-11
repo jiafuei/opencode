@@ -23,6 +23,7 @@ export type Input = {
   agents?: PromptInput.Prompt["agents"]
   skills?: PromptInput.Prompt["skills"]
   metadata?: Record<string, unknown>
+  format?: SessionInbox.UserPayload["format"]
   delivery?: SessionInbox.Delivery
 }
 
@@ -84,6 +85,7 @@ export const prepare = Effect.fn("SessionPrompt.prepare")(function* (request: {
           skills: selected?.length ? selected : undefined,
         }),
         metadata: event.metadata,
+        format: request.input.format,
       }),
       delivery: SessionInbox.Delivery.make(event.delivery),
     } satisfies SessionInbox.Item
