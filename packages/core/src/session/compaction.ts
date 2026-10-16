@@ -19,6 +19,7 @@ import {
 import type { StreamOptions } from "@opencode/ai/route"
 import type { SessionCompactionResult } from "@opencode/plugin/effect/session"
 import type { SessionError } from "@opencode/schema/session-error"
+import type { ConfigCompaction } from "@opencode/schema/config/compaction"
 import { makeLocationNode } from "@opencode/util/effect/app-node"
 import { Context, Effect, Exit, Fiber, Layer, Result, Schema, Scope, Stream } from "effect"
 import { Agent } from "../agent.js"
@@ -45,6 +46,8 @@ export type Settings = {
   auto: boolean
   /** Tokens kept free below the model's limits before compacting. Unset keeps 15%, and at least 16k, free. */
   buffer?: number
+  /** Compact at this token count or percentage of the active model's input limit, whichever ceiling is earlier. */
+  threshold?: ConfigCompaction.Threshold
   /** Tokens of recent conversation kept verbatim beside the summary. */
   keep: number
   /** Summarize in the background as the context nears the threshold, so automatic compaction can swap it in. */
@@ -300,7 +303,7 @@ export const layer = Layer.effect(
       if (trigger.reason !== "manual" && !settings.auto) return { status: "skipped" }
       if (
         trigger.reason === "auto" &&
-        !due(context, calculateCeiling(context.model.limit, settings.buffer), trigger.estimate)
+        !due(context, autoCeiling(context, settings), trigger.estimate)
       )
         return { status: "skipped" }
       const held = precomputed.get(context.session.id)
@@ -347,7 +350,7 @@ export const layer = Layer.effect(
       if (!settings.precompute || !settings.auto) return
       const context = yield* load
       if (context.model.compaction?.type === "native") return
-      const ceiling = calculateCeiling(context.model.limit, settings.buffer)
+      const ceiling = autoCeiling(context, settings)
       if (!Number.isFinite(ceiling)) return
       const estimate = given ?? estimatePrompt(context)
       if (due(context, ceiling, estimate)) return
@@ -422,6 +425,19 @@ export const layer = Layer.effect(
       held.usage.forEach((usage) => addSpent(context.session.id, usage))
       return { ...exit.value, metadata: { keepID: held.keepID, ...exit.value.metadata } }
     })
+
+    /** The earlier of the configured threshold and the buffer ceiling. */
+    const autoCeiling = (context: SessionContext.Loaded, settings: Settings) => {
+      const threshold = context.model.compaction?.threshold ?? settings.threshold
+      const window = context.model.limit.input || context.model.limit.context
+      const ceiling =
+        typeof threshold === "number"
+          ? threshold
+          : threshold !== undefined && window > 0
+            ? (window * Number.parseFloat(threshold)) / 100
+            : Number.POSITIVE_INFINITY
+      return Math.min(ceiling, calculateCeiling(context.model.limit, settings.buffer))
+    }
 
     const due = (context: SessionContext.Loaded, ceiling: number, estimate?: Estimate) => {
       const messages = context.messages
