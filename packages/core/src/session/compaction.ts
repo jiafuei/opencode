@@ -19,6 +19,7 @@ import {
 import type { StreamOptions } from "@opencode/ai/route"
 import type { SessionCompactionResult } from "@opencode/plugin/effect/session"
 import type { SessionError } from "@opencode/schema/session-error"
+import type { ConfigCompaction } from "@opencode/schema/config/compaction"
 import { makeLocationNode } from "@opencode/util/effect/app-node"
 import { Context, Effect, Layer, Result, Schema, Stream } from "effect"
 import { Agent } from "../agent.js"
@@ -45,6 +46,8 @@ export type Settings = {
   auto: boolean
   /** Tokens kept free below the model's limits before compacting. Unset keeps 10% free. */
   buffer?: number
+  /** Compact at this token count or percentage of the active model's input limit, whichever ceiling is earlier. */
+  threshold?: ConfigCompaction.Threshold
   /** Tokens of recent conversation kept verbatim beside the summary. */
   keep: number
 }
@@ -213,8 +216,18 @@ export const layer = Layer.effect(
 
       // Only the user compacts when automatic compaction is off, overflow included.
       if (trigger.reason !== "manual" && !settings.auto) return { status: "skipped" }
-      if (trigger.reason === "auto" && !due(context, calculateCeiling(context.model.limit, settings.buffer)))
-        return { status: "skipped" }
+      if (trigger.reason === "auto") {
+        const threshold = context.model.compaction?.threshold ?? settings.threshold
+        const window = context.model.limit.input || context.model.limit.context
+        const ceiling =
+          typeof threshold === "number"
+            ? threshold
+            : threshold !== undefined && window > 0
+              ? (window * Number.parseFloat(threshold)) / 100
+              : Number.POSITIVE_INFINITY
+        if (!due(context, Math.min(ceiling, calculateCeiling(context.model.limit, settings.buffer))))
+          return { status: "skipped" }
+      }
       const native = context.model.compaction?.type === "native"
       const agent = native ? undefined : yield* agents.get(Agent.ID.make("compaction"))
       const model =

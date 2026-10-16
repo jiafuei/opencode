@@ -20,7 +20,7 @@ export type AgentID = string
 
 export type ProviderID = string
 
-export type ProviderCompaction = { type: "summary" } | { type: "native" }
+export type ConfigCompactionThreshold = number | string
 
 export type ProviderTransport = "http" | "websocket"
 
@@ -338,29 +338,7 @@ export type SessionProviderContextProvenance = {
   endpoint: string
 }
 
-export type ProviderSettings = {
-  timeout?: number | false
-  headerTimeout?: number | false
-  chunkTimeout?: number | false
-  compaction?: ProviderCompaction
-  transport?: ProviderTransport
-  encoding?: ProviderEncoding
-} & { [x: string]: any }
-
-export type ModelSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & { [x: string]: any }
-
-export type ConfigProviderSettings = {
-  timeout?: number | false
-  headerTimeout?: number | false
-  chunkTimeout?: number | false
-  compaction?: ProviderCompaction
-  transport?: ProviderTransport
-  encoding?: ProviderEncoding
-} & { [x: string]: JsonValue | null }
-
-export type ConfigModelSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
-  [x: string]: JsonValue | null
-}
+export type ProviderCompaction = { type?: "summary" | "native"; threshold?: ConfigCompactionThreshold }
 
 export type PermissionRule = { action: string; resource: string; effect: PermissionEffect }
 
@@ -911,19 +889,40 @@ export type SessionMessageModelSelected = {
   previous?: ModelRef
 }
 
-export type SessionProviderContext = { version: 1; provenance: SessionProviderContextProvenance; messages: JsonValue }
-
-export type ProviderRequest = {
-  settings: ProviderSettings
-  headers: { [x: string]: string }
-  body: { [x: string]: any }
+export type SessionProviderContext = {
+  version: 1
+  provenance?: SessionProviderContextProvenance | null
+  messages: JsonValue
 }
 
-export type ModelVariant = {
-  id: string
-  settings?: ModelSettings
-  headers?: { [x: string]: string }
-  body?: { [x: string]: any }
+export type SessionProviderContext1 = {
+  version: 1
+  provenance?: SessionProviderContextProvenance | undefined
+  messages: JsonValue
+}
+
+export type ProviderSettings = {
+  timeout?: number | false
+  headerTimeout?: number | false
+  chunkTimeout?: number | false
+  compaction?: ProviderCompaction
+  transport?: ProviderTransport
+  encoding?: ProviderEncoding
+} & { [x: string]: any }
+
+export type ModelSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & { [x: string]: any }
+
+export type ConfigProviderSettings = {
+  timeout?: number | false
+  headerTimeout?: number | false
+  chunkTimeout?: number | false
+  compaction?: ProviderCompaction
+  transport?: ProviderTransport
+  encoding?: ProviderEncoding
+} & { [x: string]: JsonValue | null }
+
+export type ConfigModelSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
+  [x: string]: JsonValue | null
 }
 
 export type PermissionRuleset = Array<PermissionRule>
@@ -1941,19 +1940,6 @@ export type CredentialKey = {
   configuration?: FormAnswer
 }
 
-export type ProviderInfo = {
-  id: ProviderID
-  canonical?: ProviderID
-  integrationID?: IntegrationID
-  name: string
-  activation: "auto" | "enabled" | "disabled"
-  package: string
-  compatibility?: ProviderCompatibility
-  settings?: ProviderSettings
-  headers?: { [x: string]: string }
-  body?: { [x: string]: any }
-}
-
 export type VoiceSessionResponse = { data: { transport: VoiceTransport } }
 
 export type ConnectionInfo = ConnectionCredentialInfo | ConnectionEnvInfo
@@ -2069,7 +2055,7 @@ export type SessionCompactionEnded = {
     reason: "auto" | "manual"
     model?: ModelRef
     providerState?: SessionMessageProviderState1
-    providerContext?: SessionProviderContext
+    providerContext?: SessionProviderContext1
     text: string
     recent: string
     cost?: MoneyUSD
@@ -2077,39 +2063,30 @@ export type SessionCompactionEnded = {
   }
 }
 
-export type ModelInfo = {
-  id: string
-  modelID: string
-  providerID: ProviderID
+export type ProviderRequest = {
+  settings: ProviderSettings
+  headers: { [x: string]: string }
+  body: { [x: string]: any }
+}
+
+export type ProviderInfo = {
+  id: ProviderID
   canonical?: ProviderID
-  family?: string
+  integrationID?: IntegrationID
   name: string
-  compatibility?: ModelCompatibility
-  package?: string
+  activation: "auto" | "enabled" | "disabled"
+  package: string
+  compatibility?: ProviderCompatibility
+  settings?: ProviderSettings
+  headers?: { [x: string]: string }
+  body?: { [x: string]: any }
+}
+
+export type ModelVariant = {
+  id: string
   settings?: ModelSettings
   headers?: { [x: string]: string }
   body?: { [x: string]: any }
-  capabilities: ModelCapabilities
-  variants: Array<ModelVariant>
-  time: { released: number }
-  cost: Array<ModelCost>
-  status: "alpha" | "beta" | "deprecated" | "active"
-  enabled: boolean
-  limit: { context: number; input?: number; output: number }
-}
-
-export type AgentInfo = {
-  id: AgentID
-  name: string
-  model?: ModelRef
-  request: ProviderRequest
-  system?: string
-  description?: string
-  mode: "subagent" | "primary" | "all"
-  hidden: boolean
-  color?: AgentColor
-  steps?: number
-  permissions: PermissionRuleset
 }
 
 export type SessionInfo = {
@@ -2261,7 +2238,12 @@ export type ConfigEntry =
                 }
           }
         }
-        compaction?: { auto?: boolean; keep?: { tokens?: number }; buffer?: number }
+        compaction?: {
+          auto?: boolean
+          keep?: { tokens?: number }
+          buffer?: number
+          threshold?: ConfigCompactionThreshold
+        }
         skills?: Array<string>
         commands?: {
           [x: string]: {
@@ -2399,6 +2381,41 @@ export type SessionMessageCompaction =
   | SessionMessageCompactionRunning
   | SessionMessageCompactionCompleted
   | SessionMessageCompactionFailed
+
+export type AgentInfo = {
+  id: AgentID
+  name: string
+  model?: ModelRef
+  request: ProviderRequest
+  system?: string
+  description?: string
+  mode: "subagent" | "primary" | "all"
+  hidden: boolean
+  color?: AgentColor
+  steps?: number
+  permissions: PermissionRuleset
+}
+
+export type ModelInfo = {
+  id: string
+  modelID: string
+  providerID: ProviderID
+  canonical?: ProviderID
+  family?: string
+  name: string
+  compatibility?: ModelCompatibility
+  package?: string
+  settings?: ModelSettings
+  headers?: { [x: string]: string }
+  body?: { [x: string]: any }
+  capabilities: ModelCapabilities
+  variants: Array<ModelVariant>
+  time: { released: number }
+  cost: Array<ModelCost>
+  status: "alpha" | "beta" | "deprecated" | "active"
+  enabled: boolean
+  limit: { context: number; input?: number; output: number }
+}
 
 export type SessionsResponse = {
   data: Array<SessionInfo>
@@ -3492,14 +3509,14 @@ export type SessionImportInput = {
               readonly recent: string
               readonly providerContext?: {
                 readonly version: 1
-                readonly provenance: {
+                readonly provenance?: {
                   readonly providerID: string
                   readonly provider: string
                   readonly modelID: string
                   readonly route: string
                   readonly protocol: string
                   readonly endpoint: string
-                }
+                } | null
                 readonly messages: JsonValue
               }
               readonly cost?: number
@@ -3836,14 +3853,14 @@ export type SessionImportInput = {
               readonly recent: string
               readonly providerContext?: {
                 readonly version: 1
-                readonly provenance: {
+                readonly provenance?: {
                   readonly providerID: string
                   readonly provider: string
                   readonly modelID: string
                   readonly route: string
                   readonly protocol: string
                   readonly endpoint: string
-                }
+                } | null
                 readonly messages: JsonValue
               }
               readonly cost?: number
@@ -4180,14 +4197,14 @@ export type SessionImportInput = {
               readonly recent: string
               readonly providerContext?: {
                 readonly version: 1
-                readonly provenance: {
+                readonly provenance?: {
                   readonly providerID: string
                   readonly provider: string
                   readonly modelID: string
                   readonly route: string
                   readonly protocol: string
                   readonly endpoint: string
-                }
+                } | null
                 readonly messages: JsonValue
               }
               readonly cost?: number

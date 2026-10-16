@@ -1100,14 +1100,16 @@ export type SessionLogOutput =
             readonly providerContext?:
               | {
                   readonly version: 1
-                  readonly provenance: {
-                    readonly providerID: Provider.ID
-                    readonly provider: string
-                    readonly modelID: string
-                    readonly route: string
-                    readonly protocol: string
-                    readonly endpoint: string
-                  }
+                  readonly provenance?:
+                    | {
+                        readonly providerID: Provider.ID
+                        readonly provider: string
+                        readonly modelID: string
+                        readonly route: string
+                        readonly protocol: string
+                        readonly endpoint: string
+                      }
+                    | undefined
                   readonly messages: Schema.Json
                 }
               | undefined

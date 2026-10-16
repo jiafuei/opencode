@@ -352,6 +352,15 @@ function normalizeCompaction(
   unsupportedIfPresent(input.compaction, "tail_turns", ["compaction", "tail_turns"], diagnostics)
   unsupportedIfPresent(input.compaction, "prune", ["compaction", "prune"], diagnostics)
   const result: Record<string, unknown> = {}
+  if (own(input.compaction, "threshold")) {
+    const value = decodeEncoded(
+      ConfigCompaction.Info.fields.threshold,
+      input.compaction.threshold,
+      ["compaction", "threshold"],
+      diagnostics,
+    )
+    if (value !== undefined) result.threshold = value
+  }
   if (own(input.compaction, "auto")) {
     const value = decodeEncoded(
       ConfigCompaction.Info.fields.auto,

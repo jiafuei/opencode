@@ -83,8 +83,54 @@ Add `compaction` to any [OpenCode configuration file](/config):
 | `auto` | `true` | Compact automatically near the context limit, and recover once when a provider rejects a request as too long. Manual compaction always works. |
 | `keep.tokens` | `15000` | Approximate recent conversation kept beside the summary. Larger values preserve more detail but leave less room for new work. |
 | `buffer` | 10% of the limit | Tokens to keep free below the model's limit. Larger values start automatic compaction earlier. |
+| `threshold` | Unset | Compact at this estimated context size, or at the buffer ceiling if reached first. Accepts a positive token count or a percentage above `0%` up to `100%`. |
 
 `keep.tokens` and `buffer` accept non-negative integers.
+
+### Thresholds
+
+To compact earlier, set an absolute token count or a percentage of the model's
+input limit. When the input limit is unknown, percentages use the context window.
+
+```jsonc title="opencode.jsonc"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "compaction": {
+    "threshold": "80%", // Or a token count: 100000
+  },
+}
+```
+
+OpenCode checks the threshold before each model call. The threshold changes when
+compaction starts, not the summary request budget or `keep.tokens`.
+If both model limits are unknown, only absolute thresholds apply.
+
+### Model overrides
+
+Set `settings.compaction.threshold` on a provider or model to override the global
+threshold. A model threshold takes precedence over its provider's threshold.
+
+```jsonc title="opencode.jsonc"
+{
+  "$schema": "https://opencode.ai/config.json",
+  "compaction": { "threshold": "80%" },
+  "providers": {
+    "openai": {
+      "settings": { "compaction": { "threshold": "75%" } },
+      "models": {
+        "gpt-4.1": {
+          "settings": { "compaction": { "threshold": 120000 } },
+        },
+      },
+    },
+  },
+}
+```
+
+Threshold overrides do not require a `type`; an omitted type inherits the provider
+setting, or defaults to `summary`. The active session model determines the threshold,
+even when a separate agent model writes the summary. `auto: false` disables all
+automatic thresholds.
 
 ## Providers
 
@@ -122,7 +168,7 @@ after    [ encrypted checkpoint + recent user messages ]
 | Topic | Behavior |
 | --- | --- |
 | Support | OpenAI Responses models. Support varies by deployment and model. |
-| Threshold | Same `auto` and `buffer` settings as summary compaction. Manual requests work too. |
+| Threshold | Same `auto`, `buffer`, and `threshold` settings as summary compaction. Manual requests work too. |
 | Portability | An encrypted checkpoint only works with the same provider, model, and endpoint. If you switch models, the session continues from the original conversation instead. |
 | Too long | If the provider rejects a compaction as too long, OpenCode retries it with a smaller request. It does not switch to a summary. |
 
