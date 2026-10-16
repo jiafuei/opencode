@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
 import { Config } from "../src/config.js"
 import { ConfigAgent } from "../src/config/agent.js"
+import { ConfigCompaction } from "../src/config/compaction.js"
 import { ConfigMCP } from "../src/config/mcp.js"
 import { ConfigProvider } from "../src/config/provider.js"
 import { Mcp } from "../src/mcp.js"
@@ -10,6 +11,26 @@ import { AbsolutePath } from "../src/schema.js"
 import { WebSearch } from "../src/websearch.js"
 
 describe("Config.Entry", () => {
+  test("round-trips compaction thresholds and threshold-only model overrides", () => {
+    for (const threshold of [100_000, "80%", "0.5%", "100%"] as const) {
+      const input = {
+        compaction: { threshold },
+        providers: {
+          custom: {
+            settings: { compaction: { type: "native", threshold } },
+            models: { chat: { settings: { compaction: { threshold } } } },
+          },
+        },
+      }
+      expect(Schema.encodeSync(Config.Info)(Schema.decodeUnknownSync(Config.Info)(input))).toEqual(input)
+    }
+    for (const threshold of [0, -1, 1.5, "0%", "101%", "80", "nope"])
+      expect(() => Schema.decodeUnknownSync(ConfigCompaction.Threshold)(threshold)).toThrow()
+    expect(ConfigCompaction.Threshold.ast.annotations?.identifier).toBe("Config.Compaction.Threshold")
+    expect(Schema.encodeSync(ConfigCompaction.Info)(new ConfigCompaction.Info({ threshold: undefined }))).toEqual({})
+    expect(Schema.encodeSync(Provider.Compaction)({ type: undefined, threshold: 100_000 })).toEqual({ threshold: 100_000 })
+  })
+
   test("round-trips tool.use and rejects unsupported action spellings", () => {
     const input = {
       experimental: {

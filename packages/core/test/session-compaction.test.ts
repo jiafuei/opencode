@@ -404,6 +404,35 @@ it.effect("auto compaction estimates current content against the buffered prompt
       time: { created: 0, completed: 0 },
     })
     expect(yield* due({ ...grown, messages: [checkpoint] })).toBe(false)
+
+    yield* compaction.transform((editor) => editor.configure({ threshold: 50_000 }))
+    expect(yield* due(input(49_999, inputLimited))).toBe(false)
+    expect(yield* due(input(50_000, inputLimited))).toBe(true)
+    expect(yield* due(native(50_000))).toBe(true)
+
+    // A resolved provider/model threshold overrides the global threshold, without requiring a type.
+    const overridden = input(59_999, contextLimited)
+    expect(
+      yield* due({ ...overridden, model: { ...overridden.model, compaction: { threshold: "60%" } } }),
+    ).toBe(false)
+    const reached = input(60_000, contextLimited)
+    expect(yield* due({ ...reached, model: { ...reached.model, compaction: { threshold: "60%" } } })).toBe(true)
+
+    yield* compaction.transform((editor) => editor.configure({ threshold: "50%" }))
+    expect(yield* due(input(135_999, inputLimited))).toBe(false)
+    expect(yield* due(input(136_000, inputLimited))).toBe(true)
+    expect(yield* due(input(49_999, contextLimited))).toBe(false)
+    expect(yield* due(input(50_000, contextLimited))).toBe(true)
+
+    yield* compaction.transform((editor) => editor.configure({ threshold: "100%" }))
+    expect(yield* due(input(83_999, contextLimited))).toBe(false)
+    expect(yield* due(input(84_000, contextLimited))).toBe(true)
+
+    const unknown = { context: 0, output: 0 }
+    expect(yield* due(input(1_000_000, unknown))).toBe(false)
+    yield* compaction.transform((editor) => editor.configure({ threshold: 50_000 }))
+    expect(yield* due(input(49_999, unknown))).toBe(false)
+    expect(yield* due(input(50_000, unknown))).toBe(true)
   }),
 )
 

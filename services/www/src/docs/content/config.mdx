@@ -364,6 +364,7 @@ Control automatic context compaction and how much recent context it preserves.
       "tokens": 15000,
     },
     "buffer": 20000,
+    "threshold": "80%", // Or an absolute token count: 100000
   },
 }
 ```
@@ -384,7 +385,9 @@ automatic and manual requests with a provider or model policy:
 }
 ```
 
-A model setting overrides the provider setting. Automatic compaction uses the
+A model setting overrides the provider setting. Set `settings.compaction.threshold`
+on a provider or model to override the global threshold without changing its compaction type.
+Automatic compaction uses the
 selected model's usable input budget. Provider checkpoints keep recent user messages within the same
 `compaction.keep.tokens` budget that local summaries use for their retained tail.
 Top-level `compaction.auto: false` disables new automatic compaction without
