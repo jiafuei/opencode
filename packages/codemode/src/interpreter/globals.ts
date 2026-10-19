@@ -1,4 +1,5 @@
-import { Arr, Callable, coerceToInteger, coerceToString, get, Obj, type Value } from "./objects.js"
+import { Effect } from "effect"
+import { Arr, Callable, coerceToInteger, coerceToNumber, coerceToString, get, Obj, type Value } from "./objects.js"
 import { arrayGlobal } from "../stdlib/array.js"
 import { textDecoderGlobal, textEncoderGlobal, uint8ArrayGlobal } from "../stdlib/bytes.js"
 import { mapGlobal, setGlobal, weakMapGlobal, weakSetGlobal } from "../stdlib/collections.js"
@@ -18,7 +19,7 @@ import { base64Global, cryptoGlobal, structuredCloneGlobal } from "../stdlib/web
 import { ToolReference } from "../tool-runtime.js"
 import { errorGlobal } from "./errors.js"
 import { errorTypes } from "./intrinsics.js"
-import { constants, constructor, methods, native, receiver } from "./native.js"
+import { constants, constructor, fn, methods, native, receiver } from "./native.js"
 import { AsyncIteratorSymbol, IteratorSymbol, typeError } from "./model.js"
 import { checkArrayLength } from "./limits.js"
 import { generatorGlobals } from "./generators.js"
@@ -88,6 +89,18 @@ type Factory = <R>(ctx: Interpreter<R>) => Value
 const table: Record<string, Factory> = {
   tools: () => new ToolReference([]),
   search: (ctx) => native(ctx.builtins, { name: "search", call: (_, args) => ctx.search(args), callback: false }),
+  sleep: (ctx) =>
+    fn(ctx.builtins, "sleep", 1, (_, args, site) => {
+      const runner = ctx.runner
+      const promise = runner.newPromise()
+      const resolving = runner.resolving(promise, site)
+      runner.host(
+        Effect.sleep(coerceToNumber(args[0])),
+        (settled) => (settled.ok ? resolving.resolve(undefined) : resolving.reject(settled.error)),
+        site,
+      )
+      return promise
+    }),
   undefined: () => undefined,
   NaN: () => NaN,
   Infinity: () => Infinity,
