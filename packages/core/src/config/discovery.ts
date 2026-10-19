@@ -24,15 +24,18 @@ export interface Sources {
   readonly agents: readonly AbsolutePath[]
 }
 
-/** Platform system configuration directory (`/Library/Application Support/opencode`, `/etc/opencode`, `%ProgramData%\opencode`). */
+/** System configuration directory, with the V1 environment override taking precedence over platform defaults. */
 export function systemDirectory(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env) {
+  if (env.OPENCODE_TEST_MANAGED_CONFIG_DIR) return AbsolutePath.make(path.resolve(env.OPENCODE_TEST_MANAGED_CONFIG_DIR))
   if (platform === "darwin") return AbsolutePath.make("/Library/Application Support/opencode")
   if (platform === "win32") return AbsolutePath.make(path.join(env.ProgramData || "C:\\ProgramData", "opencode"))
   return AbsolutePath.make("/etc/opencode")
 }
 
 /** macOS MDM managed preferences plists, most specific first; the first one present wins. */
-export function preferencePaths(user: string) {
+export function preferencePaths(user: string, env: NodeJS.ProcessEnv = process.env) {
+  if (env.OPENCODE_TEST_MANAGED_PREFERENCES_PATH)
+    return [AbsolutePath.make(path.resolve(env.OPENCODE_TEST_MANAGED_PREFERENCES_PATH))]
   return [
     AbsolutePath.make(path.join("/Library/Managed Preferences", user, "ai.opencode.managed.plist")),
     AbsolutePath.make("/Library/Managed Preferences/ai.opencode.managed.plist"),
