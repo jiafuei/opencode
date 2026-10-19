@@ -14,7 +14,8 @@ The idea of code mode was originally introduced by Cloudflare. See
 ## How it differs from JavaScript
 
 - **Only supported APIs are available.** Programs can use the provided tools, supported JavaScript built-ins, and the
-  globals the host adds through extensions. Timers, `process`, filesystem access, imports, and modules are unavailable.
+  globals the host adds through extensions. Callback timers (`setTimeout`, `setInterval`), `process`, filesystem access,
+  imports, and modules are unavailable. Use `await sleep(ms)` to pause execution.
 - **Unfinished work is interrupted.** Tool calls and async functions start when called. When the program finishes,
   anything still running is interrupted. Unhandled rejections from un-awaited promises are returned as warnings.
 - **REPL-style results.** Without an explicit `return`, the final top-level expression becomes the result. `undefined`
@@ -49,6 +50,18 @@ const result = await Effect.runPromise(
 ```
 
 `result` is always a [`CodeMode.Result`](#results).
+
+### Pause execution
+
+The built-in `sleep(ms)` returns a promise that resolves to `undefined` after a delay in milliseconds:
+
+```js
+await sleep(1000)
+return "ready"
+```
+
+Sleep uses the execution's Effect clock and respects interruption and execution timeouts.
+Unfinished sleeps are cancelled when the program ends, like other pending promises.
 
 ## API
 

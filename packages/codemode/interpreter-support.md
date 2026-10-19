@@ -258,6 +258,8 @@ Math.floor)` is `"3"`). A detached method loses its receiver, as in JS: `values.
 
 ## Promises and tools
 
+- [x] Global `sleep(ms)` returns a supervised promise that resolves to `undefined` after the millisecond delay,
+      using the Effect clock and respecting execution interruption and timeouts. Callback timers remain unavailable.
 - [x] Tool calls start eagerly and return supervised, run-once CodeMode promises.
 - [x] Direct `await`, repeated awaits, and recursive thenable assimilation when a promise or thenable is returned from
       a function/program.
