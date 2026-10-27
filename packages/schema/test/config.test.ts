@@ -17,7 +17,7 @@ describe("Config.Entry", () => {
         compaction: { threshold },
         providers: {
           custom: {
-            settings: { compaction: { type: "native", threshold } },
+            settings: { compaction: { type: "native" as const, threshold } },
             models: { chat: { settings: { compaction: { threshold } } } },
           },
         },

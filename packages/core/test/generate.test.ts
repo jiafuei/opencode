@@ -20,11 +20,13 @@ import { Generate } from "@opencode/core/generate"
 import { Integration } from "@opencode/core/integration"
 import { IntegrationConnection } from "@opencode/core/integration/connection"
 import { ModelResolver } from "@opencode/core/model-resolver"
+import { PluginHooks } from "@opencode/core/plugin/hooks"
 import { ModelsDev } from "@opencode/core/models-dev"
 import { ID, Info, Model, Ref, VariantID } from "@opencode/core/model"
 import { Provider } from "@opencode/core/provider"
 import { Variant } from "@opencode/core/variant"
 import { Money } from "@opencode/schema/money"
+import { LayerNode } from "@opencode/util/effect/layer-node"
 import { Npm } from "@opencode/util/npm"
 import { Effect, Exit, Fiber, Layer } from "effect"
 import { TestClock } from "effect/testing"
@@ -81,7 +83,9 @@ const aisdk = Layer.mock(AISDK.Service, {
 })
 const client = TestLLM.testLayer({ fallback: TestLLM.text("OK", "generate") })
 
-const resolver = ModelResolver.layer.pipe(Layer.provide(Layer.mergeAll(providers, models, integrations, npm, aisdk)))
+const resolver = ModelResolver.layer.pipe(
+  Layer.provide(Layer.mergeAll(providers, models, integrations, npm, aisdk, LayerNode.compile(PluginHooks.node))),
+)
 const generateDeps = Layer.mergeAll(models, RequestExecutor.fetchLayer)
 const it = testEffect(Generate.layer.pipe(Layer.provide(Layer.mergeAll(resolver, client, generateDeps))))
 const resolverIt = testEffect(resolver)
@@ -417,7 +421,9 @@ describe("image and decision generation", () => {
   )
   const executor = RequestExecutor.layer.pipe(Layer.provide(http))
   const mediaResolver = ModelResolver.layer.pipe(
-    Layer.provide(Layer.mergeAll(mediaProviders, mediaModels, mediaIntegrations, npm, aisdk)),
+    Layer.provide(
+      Layer.mergeAll(mediaProviders, mediaModels, mediaIntegrations, npm, aisdk, LayerNode.compile(PluginHooks.node)),
+    ),
   )
   const mediaIt = testEffect(
     Generate.layer.pipe(Layer.provide(Layer.mergeAll(mediaResolver, client, mediaModels, executor))),

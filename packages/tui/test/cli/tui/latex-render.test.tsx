@@ -30,7 +30,7 @@ function Fixture(props: { content: string }) {
     <box flexDirection="column" width={48}>
       <markdown
         width="100%"
-        syntaxStyle={SyntaxStyle.fromTheme([])}
+        syntaxStyle={SyntaxStyle.fromTheme([], renderer.nativeScene)}
         streaming={true}
         internalBlockMode="top-level"
         content={transformMathSource(props.content)}

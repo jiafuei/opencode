@@ -11,7 +11,9 @@ import { Compatibility, ID, Info, Model, VariantID } from "@opencode/core/model"
 import { Provider } from "@opencode/core/provider"
 import { Variant } from "@opencode/core/variant"
 import { ModelResolver } from "@opencode/core/model-resolver"
+import { PluginHooks } from "@opencode/core/plugin/hooks"
 import { AISDK } from "@opencode/core/aisdk"
+import { LayerNode } from "@opencode/util/effect/layer-node"
 import { Npm } from "@opencode/util/npm"
 import { it } from "./lib/effect"
 
@@ -419,7 +421,9 @@ describe("ModelResolver", () => {
       },
       model: () => Effect.die("unused"),
     })
-    const layer = ModelResolver.layer.pipe(Layer.provide(Layer.mergeAll(providers, models, integrations, npm, aisdk)))
+    const layer = ModelResolver.layer.pipe(
+      Layer.provide(Layer.mergeAll(providers, models, integrations, npm, aisdk, LayerNode.compile(PluginHooks.node))),
+    )
 
     return withConfigEnv({}, () =>
       Effect.gen(function* () {

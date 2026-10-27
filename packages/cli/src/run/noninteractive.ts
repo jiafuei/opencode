@@ -35,7 +35,7 @@ type Input = {
   variant?: string
   thinking: boolean
   format: "default" | "json"
-  outputSchema?: Record<string, unknown>
+  outputSchema?: Record<string, JsonValue>
   auto: boolean
   /** True when the client is attached to a shared server rather than an exclusive in-process one. */
   attached: boolean

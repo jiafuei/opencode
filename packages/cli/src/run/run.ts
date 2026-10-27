@@ -1,5 +1,5 @@
 import { Service, type Endpoint } from "@opencode/client/effect/service"
-import { OpenCode, type SessionMessageAssistantTool } from "@opencode/client/promise"
+import { OpenCode, type JsonValue, type SessionMessageAssistantTool } from "@opencode/client/promise"
 import { FSUtil } from "@opencode/util/fs-util"
 import { noTimeoutFetch } from "@opencode/util/no-timeout-fetch"
 import { open } from "node:fs/promises"
@@ -40,7 +40,7 @@ type Prepared = {
   directory?: string
   message: string
   files: FilePart[]
-  outputSchema?: Record<string, unknown>
+  outputSchema?: Record<string, JsonValue>
 }
 
 type ExecutionOptions = {

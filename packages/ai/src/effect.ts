@@ -15,6 +15,7 @@ export {
   ToolCallID,
   JsonSchema,
   ProviderOptions,
+  mergeProviderOptions,
   ProviderMetadata,
   HttpTimeout,
   RequestEncoding,

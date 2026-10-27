@@ -4025,7 +4025,7 @@ describe("SessionRunnerLLM", () => {
 
     expect(s.requests).toHaveLength(1)
     expect(s.requests[0]?.toolChoice).toMatchObject({ type: "required" })
-    expect(s.requests[0]?.tools.find((tool) => tool.name === "StructuredOutput")?.inputSchema).toEqual(schema)
+    expect(s.requests[0]?.tools.find((tool) => tool.name === "StructuredOutput")).toMatchObject({ inputSchema: schema })
     expect(s.requests[0]?.system.at(-1)?.text).toContain("StructuredOutput")
     expect(yield* s.context).toMatchObject([
       Expected.user("Answer briefly"),
