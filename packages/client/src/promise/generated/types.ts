@@ -91,6 +91,8 @@ export type SkillID = string
 
 export type SkillName = string
 
+export type SessionMessageOutputFormat = { type: "json_schema"; schema: { [x: string]: JsonValue } }
+
 export type SessionInboxDelivery = "steer" | "queue"
 
 export type SessionInboxSyntheticPayload = { text: string; description?: string; metadata?: { [x: string]: JsonValue } }
@@ -163,6 +165,8 @@ export type WorkspaceID = string
 export type InstructionKey = string
 
 export type InstructionHash = string
+
+export type SessionMessageOutputFormat1 = { type: "json_schema"; schema: { [x: string]: any } }
 
 export type SessionInboxSyntheticPayload1 = { text: string; description?: string; metadata?: { [x: string]: any } }
 
@@ -1124,6 +1128,7 @@ export type SessionInboxUserPayload = {
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
   metadata?: { [x: string]: JsonValue }
+  format?: SessionMessageOutputFormat
 }
 
 export type SessionMessageUser = {
@@ -1134,6 +1139,7 @@ export type SessionMessageUser = {
   files?: Array<PromptFileAttachment>
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
+  format?: SessionMessageOutputFormat
   type: "user"
 }
 
@@ -1143,6 +1149,7 @@ export type SessionInboxUserPayload1 = {
   agents?: Array<PromptAgentAttachment>
   skills?: Array<PromptSkillAttachment>
   metadata?: { [x: string]: any }
+  format?: SessionMessageOutputFormat1
 }
 
 export type SessionMessageToolStateCompleted = {
@@ -3454,6 +3461,7 @@ export type SessionPromptInput = {
       }>
     | undefined
   readonly metadata?: { readonly [x: string]: JsonValue } | undefined
+  readonly format?: { readonly type: "json_schema"; readonly schema: { readonly [x: string]: JsonValue } } | undefined
   readonly delivery?: ("steer" | "queue") | null | undefined
   readonly resume?: boolean | null | undefined
 }

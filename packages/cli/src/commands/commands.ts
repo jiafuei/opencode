@@ -445,6 +445,10 @@ const Root = Spec.make(typeof OPENCODE_CLI_NAME === "string" ? OPENCODE_CLI_NAME
           ),
           Flag.withDefault(false),
         ),
+        outputSchema: Flag.String("output-schema").pipe(
+          Flag.withDescription("JSON schema file path or inline JSON schema for structured output"),
+          Flag.optional,
+        ),
         thinking: Flag.Boolean("thinking").pipe(Flag.withDescription("Show thinking blocks"), Flag.withDefault(false)),
         ...PermissionParams,
       },
