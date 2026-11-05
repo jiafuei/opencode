@@ -1,4 +1,5 @@
-import { containsDirectory, sameDirectory } from "@opencode/util/path"
+import { containsDirectory, getFilename, sameDirectory } from "@opencode/util/path"
+import { displayName } from "@opencode/ui/project-avatar"
 import type { WorkspaceDefaultDestination, WorkspaceLastUsed } from "@/settings/model"
 import type { SessionInfo, WorktreeDirectory } from "@opencode/client/promise"
 
@@ -95,6 +96,27 @@ export function isProjectDirectory(project: WorkspaceProject | undefined, direct
   if (!project) return false
 
   return [project.worktree, ...(project.sandboxes ?? [])].some((root) => containsDirectory(root, directory))
+}
+
+/** `directory` is below the root of the project's main checkout and outside its worktrees, e.g. a monorepo package. */
+export function isProjectSubdirectory(project: WorkspaceProject, directory: string) {
+  return (
+    containsDirectory(project.worktree, directory) &&
+    !sameDirectory(project.worktree, directory) &&
+    !workspaceDirectories(project).some((workspace) => containsDirectory(workspace, directory))
+  )
+}
+
+/** The path of `directory` below `root`, e.g. "/packages/app"; empty outside it. */
+export function projectSubdirectory(root: string, directory: string) {
+  return containsDirectory(root, directory) ? directory.slice(root.length) : ""
+}
+
+/** Project list entries for a subdirectory are named after its folder and the project, e.g. "app · opencode". */
+export function projectEntryName(project: { name?: string; worktree: string; directory?: string }) {
+  if (!project.directory) return displayName(project)
+
+  return `${getFilename(project.directory)} · ${displayName(project)}`
 }
 
 export function isWorkspaceSelection(project: WorkspaceProject | undefined, selection: string) {

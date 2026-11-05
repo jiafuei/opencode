@@ -215,7 +215,7 @@ export function locationDialogView(state: LocationDialogState) {
 }
 
 export function projectEntryID(project: PromptProject) {
-  return `project:${project.server?.key ?? ""}:${project.worktree}`
+  return `project:${project.server?.key ?? ""}:${project.directory ?? project.worktree}`
 }
 
 // Leaves the current step for `next`, remembering the current step and its active row to return to.

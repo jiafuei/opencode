@@ -26,6 +26,7 @@ import { useGlobal } from "@/runtime/server/runtime"
 import { ServerConnection } from "@/runtime/server/registry"
 import { tabKey, useTabs } from "@/shell/tabs/tabs"
 import type { ComposerState } from "@/composer/persistence"
+import type { ProjectEntry } from "@/runtime/server/types"
 import "./titlebar.css"
 import { MobileDrawer, MobileDrawerContent, MobileDrawerLabel, MobileDrawerTrigger } from "@/shell/mobile-drawer"
 import { sessionTabTitle } from "./tab-title"
@@ -285,13 +286,17 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
 
                   const projects = conn ? global.serverCtx(ServerConnection.key(conn))?.projects : undefined
 
-                  const project =
-                    projects?.list().find((item) => item.worktree === selection.directory) ??
+                  // The selected Home row may be a project's subdirectory entry, which opens that subdirectory.
+                  const project: ProjectEntry | undefined =
+                    projects?.entries().find((item) => (item.directory ?? item.worktree) === selection.directory) ??
                     projects?.last() ??
                     projects?.list()[0]
 
                   if (conn && project) {
-                    void tabs.newDraft({ server: ServerConnection.key(conn), directory: project.worktree, draftID }, "")
+                    void tabs.newDraft(
+                      { server: ServerConnection.key(conn), directory: project.directory ?? project.worktree, draftID },
+                      "",
+                    )
 
                     return true
                   }

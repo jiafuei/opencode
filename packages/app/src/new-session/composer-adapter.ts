@@ -13,6 +13,7 @@ import { useServerSDK } from "@/runtime/server/client"
 import { useTabs } from "@/shell/tabs/tabs"
 import { useWorkspaceLocation } from "@/workspaces/location"
 import { createWorktree } from "@/workspaces/create"
+import { projectSubdirectory } from "@/workspaces/paths"
 import { showToast } from "@/shell/notifications/toast"
 import type { DraftMcpControls } from "./mcp"
 import {
@@ -98,12 +99,12 @@ export function createNewSessionComposerAdapter(props: {
     submitted: props.submitted,
     start(selection, submission, message) {
       const currentDirectory = location().directory
-
-      const projectDirectory =
-        data.location.info({ directory: currentDirectory })?.project.canonical ?? currentDirectory
-
+      const canonical = data.location.info({ directory: currentDirectory })?.project.canonical ?? currentDirectory
+      // Keep subdirectories of the main checkout (monorepo packages) in whichever workspace runs the session;
+      // a draft in another worktree starts at the root
+      const subdirectory = projectSubdirectory(canonical, currentDirectory)
       const worktree = props.worktree()
-      const directory = worktree === "main" ? projectDirectory : worktree
+      const directory = (worktree === "main" ? canonical : worktree) + subdirectory
       const sessionID = Session.ID.create()
       const settled = Promise.withResolvers<Started>()
 
@@ -113,7 +114,7 @@ export function createNewSessionComposerAdapter(props: {
           sessionID,
           workspace:
             worktree === "create"
-              ? { type: "new", projectDirectory, branch: props.branch() }
+              ? { type: "new", projectDirectory: canonical, branch: props.branch() }
               : { type: "existing", directory },
           mcp: props.mcp.capture(),
           toggling: worktree !== "create" && props.mcp.toggling(directory),
@@ -137,7 +138,7 @@ export function createNewSessionComposerAdapter(props: {
                   project: data.location.info({ directory: effect.projectDirectory })?.project,
                   branch: effect.branch,
                 }).then(
-                  (directory) => ({ type: "worktree.created", attempt, directory }) as const,
+                  (directory) => ({ type: "worktree.created", attempt, directory: directory + subdirectory }) as const,
                   (error) => ({ type: "worktree.failed", attempt, message: errorMessage(language, error) }) as const,
                 ),
               )

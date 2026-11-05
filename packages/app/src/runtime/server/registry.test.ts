@@ -19,6 +19,7 @@ function serverSchema() {
     hidden: {},
     lastProjectID: {},
     usedProjectIDs: {},
+    usedSubdirectories: {},
     hostnames: {},
     projects: {},
   })

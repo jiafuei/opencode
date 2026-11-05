@@ -74,13 +74,12 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
     if (!item?.sessionID || !item.server) return
     const sessionId = item.sessionID
     const server = item.server
-    const directory = item.project?.worktree ?? item.directory
     const conn = servers.find((conn) => ServerConnection.key(conn) === server)
 
     const open = () => {
       dialog.close()
 
-      if (conn && directory) global.serverCtx(server)?.projects.touch(directory)
+      if (conn && item.directory) global.serverCtx(server)?.projects.touch(item.directory)
       void startTransition(() => tabs.select(tabs.addSessionTab({ server, sessionId })))
     }
 

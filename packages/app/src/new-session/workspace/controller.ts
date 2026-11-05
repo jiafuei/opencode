@@ -11,6 +11,7 @@ import { sameDirectory } from "@opencode/util/path"
 import {
   isWorkspaceDirectory,
   isWorkspaceSelection,
+  projectSubdirectory,
   workspaceDefaultSelection,
   workspaceSelectionDestination,
   workspaceSelectionDirectories,
@@ -257,6 +258,8 @@ export function createNewSessionWorkspaceController(input: {
     },
     project: {
       root: projectRoot,
+      /** The draft's path below the project root, carried into whichever worktree runs the session. */
+      subdirectory: () => projectSubdirectory(projectRoot(), sdk().directory),
       workspaces: worktreeDirectories,
       managed: managedWorktrees,
       git: visible,

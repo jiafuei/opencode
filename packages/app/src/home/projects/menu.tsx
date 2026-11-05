@@ -25,7 +25,9 @@ export function ProjectMenuItems(props: {
 
   return (
     <>
-      <Menu.Item onSelect={() => props.onOpenProjectNewSession(props.server, props.project.worktree)}>
+      <Menu.Item
+        onSelect={() => props.onOpenProjectNewSession(props.server, props.project.directory ?? props.project.worktree)}
+      >
         {language.t("command.session.new")}
       </Menu.Item>
       <Show when={props.canImportSession}>

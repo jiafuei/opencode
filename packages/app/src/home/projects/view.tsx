@@ -29,6 +29,7 @@ import {
   type ServerHealth,
 } from "@/runtime/server/health-machine"
 import { ProjectMenuItems } from "./menu"
+import { projectEntryName } from "@/workspaces/paths"
 import { CollapsedSidebarToggleSpace } from "@/shell/sidebar-toggle"
 import "./view.css"
 
@@ -83,7 +84,9 @@ export type HomeProjectsViewProps = {
 
 export function HomeProjectsView(props: HomeProjectsViewProps) {
   const [state, setState] = createStore({ open: false })
-  const selected = createMemo(() => props.projects.find((project) => project.worktree === props.selection.directory))
+  const selected = createMemo(() =>
+    props.projects.find((project) => (project.directory ?? project.worktree) === props.selection.directory),
+  )
 
   const server = createMemo(() =>
     props.servers.find((server) => ServerConnection.key(server) === props.selection.server),
@@ -109,7 +112,7 @@ export function HomeProjectsView(props: HomeProjectsViewProps) {
           <span class="flex min-w-0 flex-1 flex-col leading-[var(--line-height-compact)]">
             <bdi class="truncate">
               <Show when={selected()} fallback={props.language.t("home.projects.all")}>
-                {(project) => displayName(project())}
+                {(project) => projectEntryName(project())}
               </Show>
             </bdi>
             <Show when={props.servers.length > 1 && server()}>
@@ -525,15 +528,15 @@ function HomeProjectList(props: HomeProjectListProps) {
 
   // The server orders projects by recent activity. While the pointer is over the list, rows keep their places so
   // nothing moves under the cursor; new projects join at the end and the server order returns on leave.
-  const worktrees = createMemo<string[]>((previous) => {
-    const next = props.items.map((project) => project.worktree)
+  const directories = createMemo<string[]>((previous) => {
+    const next = props.items.map((project) => project.directory ?? project.worktree)
 
     if (!hover.active) return next
     const present = new Set(next)
-    const kept = previous.filter((worktree) => present.has(worktree))
+    const kept = previous.filter((directory) => present.has(directory))
     const known = new Set(kept)
 
-    return [...kept, ...next.filter((worktree) => !known.has(worktree))]
+    return [...kept, ...next.filter((directory) => !known.has(directory))]
   }, [])
 
   return (
@@ -542,20 +545,20 @@ function HomeProjectList(props: HomeProjectListProps) {
       onPointerEnter={() => setHover("active", true)}
       onPointerLeave={() => setHover("active", false)}
     >
-      {/* Keyed on worktree strings: the project objects are recreated on every sync update, so iterating them
+      {/* Keyed on directory strings: the project objects are recreated on every sync update, so iterating them
           directly would remount every row. */}
-      <For each={worktrees()}>{(worktree) => <HomeProjectSlot {...props} worktree={worktree} />}</For>
+      <For each={directories()}>{(directory) => <HomeProjectSlot {...props} directory={directory} />}</For>
     </div>
   )
 }
 
-function HomeProjectSlot(props: HomeProjectListProps & { worktree: string }) {
-  const initial = props.items.find((item) => item.worktree === props.worktree)
+function HomeProjectSlot(props: HomeProjectListProps & { directory: string }) {
+  const initial = props.items.find((item) => (item.directory ?? item.worktree) === props.directory)
 
   if (!initial) return
 
   const project = createMemo<LocalProject>(
-    (previous) => props.items.find((item) => item.worktree === props.worktree) ?? previous,
+    (previous) => props.items.find((item) => (item.directory ?? item.worktree) === props.directory) ?? previous,
     initial,
   )
 
@@ -565,7 +568,7 @@ function HomeProjectSlot(props: HomeProjectListProps & { worktree: string }) {
       project={project()}
       server={props.server}
       selected={
-        props.selection.server === ServerConnection.key(props.server) && props.selection.directory === props.worktree
+        props.selection.server === ServerConnection.key(props.server) && props.selection.directory === props.directory
       }
       unread={props.hasUnread(props.server, project())}
     />
@@ -600,7 +603,8 @@ function HomeProjectRow(
 ) {
   const serverUnreachable = () => isServerFailed(props.serverHealth(props.server))
 
-  const contextMenuID = () => projectContextMenuID(props.server, props.project.worktree)
+  const directory = () => props.project.directory ?? props.project.worktree
+  const contextMenuID = () => projectContextMenuID(props.server, directory())
   onCleanup(() => {
     const id = contextMenuID()
 
@@ -625,11 +629,11 @@ function HomeProjectRow(
         data-selected={props.selected ? "" : undefined}
         aria-current={props.selected ? "page" : undefined}
         disabled={serverUnreachable()}
-        onClick={() => props.onSelectProject(props.server, props.project.worktree)}
+        onClick={() => props.onSelectProject(props.server, directory())}
       >
         <HomeProjectAvatar project={props.project} />
         <span data-slot="home-row-label" class={HOME_PROJECT_NAV_LABEL}>
-          {displayName(props.project)}
+          {projectEntryName(props.project)}
         </span>
       </HomeProjectNavButton>
       <div
@@ -667,7 +671,7 @@ function HomeProjectRow(
           size="small"
           icon={<Icon name="edit" />}
           aria-label={props.language.t("command.session.new")}
-          onClick={() => props.onOpenProjectNewSession(props.server, props.project.worktree)}
+          onClick={() => props.onOpenProjectNewSession(props.server, directory())}
         />
       </div>
     </div>

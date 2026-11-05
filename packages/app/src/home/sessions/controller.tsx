@@ -44,7 +44,7 @@ import {
   type HomeSessionsTimer,
 } from "./load-machine"
 import type { HomeController } from "../model"
-import { buildHomeSessionRecords, homeProjectForSession, homeSessionLocation, type HomeSessionRecord } from "./records"
+import { buildHomeSessionRecords, homeSessionLocation, type HomeSessionRecord } from "./records"
 
 export type { HomeSessionRecord } from "./records"
 
@@ -311,8 +311,7 @@ export function createHomeSessionsController(home: HomeController) {
               if (!entry.sessionID || !entry.directory || !entry.server) return
               const sessionID = entry.sessionID
               const server = entry.server
-              const directory = entry.project?.worktree ?? entry.directory
-              ctx.projects.touch(directory)
+              ctx.projects.touch(entry.directory)
               void startTransition(() => {
                 const tab = tabs.addSessionTab({ server, sessionId: sessionID })
                 tabs.select(tab)
@@ -491,12 +490,10 @@ export function createHomeSessionsController(home: HomeController) {
       },
       create: home.project.openNewSession,
       open: (session: SessionInfo, options?: OpenSessionOptions) => {
-        const project = homeProjectForSession(session, home.project.list())
         const conn = home.server.focused()
 
         if (!conn) return
         const connKey = ServerConnection.key(conn)
-        const directory = project?.worktree ?? session.location.directory
         const ctx = home.server.focusedContext()
 
         if (!ctx) return
@@ -510,7 +507,7 @@ export function createHomeSessionsController(home: HomeController) {
           if (!options?.background) tabs.select(tab)
           ctx.data.session.remember(session)
 
-          if (!options?.background) ctx.projects.touch(directory)
+          if (!options?.background) ctx.projects.touch(session.location.directory)
         })
       },
       archive: async (session: SessionInfo) => {

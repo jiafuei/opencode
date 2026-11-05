@@ -28,6 +28,7 @@ import {
 import type { useNewSessionLocationDialog } from "@/new-session/location/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useWorkspaceLocation } from "@/workspaces/location"
+import { projectEntryName } from "@/workspaces/paths"
 import { useProviders } from "@/providers/catalog/providers"
 import { NEW_SESSION_CONTENT_WIDTH } from "@/new-session/layout"
 import { Persist, persisted } from "@/runtime/persistence/storage"
@@ -122,6 +123,7 @@ export function NewSessionView(props: {
                       project={project()}
                       workspace={props.workspace.bar.visible() ? props.workspace.selection.value() : "main"}
                       root={props.workspace.project.root()}
+                      subdirectory={props.workspace.project.subdirectory()}
                       branch={<NewSessionBranch workspace={props.workspace} onDone={props.composer.restoreFocus} />}
                       onboarding={onboardingReady() && !onboarding.used && props.workspace.bar.visible()}
                       onClick={() => location()}
@@ -280,6 +282,8 @@ function NewSessionLocation(props: {
   /** "main", "create", or a worktree directory. */
   workspace: string
   root: string
+  /** The draft's path below the project root, e.g. "/packages/app". */
+  subdirectory: string
   branch?: JSX.Element
   onboarding: boolean
   onClick: () => void
@@ -312,7 +316,7 @@ function NewSessionLocation(props: {
   const path = () => {
     if (props.workspace === "create") return
 
-    return props.workspace === "main" ? props.root : props.workspace
+    return (props.workspace === "main" ? props.root : props.workspace) + props.subdirectory
   }
 
   const fitted = createMemo(() => fitPath(path() ?? "", layout.width, layout.font))
@@ -349,7 +353,7 @@ function NewSessionLocation(props: {
                 variant={getProjectAvatarVariant(props.project.icon?.color)}
                 generated={getProjectAvatarGenerated(props.project)}
               />
-              <span class="min-w-0 truncate">{displayName(props.project)}</span>
+              <span class="min-w-0 truncate">{projectEntryName(props.project)}</span>
             </button>
           </Tooltip>
           <Show when={props.onWorktree}>

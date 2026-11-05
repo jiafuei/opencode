@@ -220,9 +220,7 @@ export function createCommandPaletteModel(props: { filesOnly?: () => boolean; on
 
     if (item.type === "session") {
       if (!item.sessionID || !item.server) return
-      const directory = item.project?.worktree ?? item.directory
-
-      if (directory) serverCtx.projects.touch(directory)
+      if (item.directory) serverCtx.projects.touch(item.directory)
 
       const tab = appTabs.addSessionTab({
         server: item.server,

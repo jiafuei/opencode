@@ -44,8 +44,9 @@ import { useSettings } from "@/settings/model"
 import { timelinePreset } from "@opencode/session-ui/timeline/detail"
 import type { SessionInfo } from "@opencode/client/promise"
 import { projectForSession } from "@/shell/layout/helpers"
-import { isProjectDirectory } from "@/workspaces/paths"
-import type { Project } from "@/runtime/server/types"
+import { isProjectDirectory, isProjectSubdirectory } from "@/workspaces/paths"
+import { containsDirectory } from "@opencode/util/path"
+import type { Project, ProjectEntry } from "@/runtime/server/types"
 
 export const { use: useGlobal, provider: GlobalProvider } = createSimpleContext({
   name: "Global",
@@ -304,6 +305,23 @@ function createServerController(
     )
   }
 
+  // Used projects, each followed by the subdirectories this client opened in it. A subdirectory entry is its project
+  // with the `directory` it opens.
+  const entries = createMemo(() => {
+    const subdirectories = projects.subdirectories().map((directory) => ({
+      directory,
+      owner: pathKey(forDirectory(directory)?.worktree ?? ""),
+    }))
+
+    return used().flatMap((project): ProjectEntry[] => [
+      project,
+      ...subdirectories
+        .filter((item) => item.owner === pathKey(project.worktree))
+        .map((item) => ({ ...project, directory: item.directory }))
+        .toSorted((a, b) => a.directory.localeCompare(b.directory)),
+    ])
+  })
+
   // Older builds kept opened directories locally; once the server's list loads they become used project IDs.
   createEffect(() => {
     const legacy = projects.legacy()
@@ -317,11 +335,15 @@ function createServerController(
   function add(directory: string) {
     return sdk.api.location
       .get({ location: { directory } })
-      .then(async (location) => {
+      .then(async (location): Promise<ProjectEntry | undefined> => {
         await sync.project.refresh()
         projects.touch(location.project.id)
+        const project = list().find((project) => project.id === location.project.id)
 
-        return list().find((project) => project.id === location.project.id)
+        if (!project || !isProjectSubdirectory(project, directory)) return project
+        projects.useSubdirectory(directory)
+
+        return { ...project, directory }
       })
       .catch((error) => {
         showToast({
@@ -345,20 +367,38 @@ function createServerController(
       list,
       unique,
       used,
+      entries,
       add,
       forDirectory,
       forSession: (session: SessionInfo): Project | undefined => projectForSession(session, list()),
       last: () => list().find((project) => project.id === projects.last()),
-      // Marks the project of a directory as used from this client, and as the last one.
+      // Marks the project of a directory as used from this client, and as the last one. A subdirectory of its main
+      // checkout becomes an entry of its own.
       touch(directory: string) {
-        const id = forDirectory(directory)?.id
+        const project = forDirectory(directory)
 
-        if (id) projects.touch(id)
+        if (!project) return
+        batch(() => {
+          projects.touch(project.id)
+
+          if (isProjectSubdirectory(project, directory)) projects.useSubdirectory(directory)
+        })
       },
-      // Removes a project from this client's used projects until it is used again; the server keeps it.
-      hide(project: Pick<Project, "worktree">) {
+      // Removes a project, with its subdirectory entries, from this client's used projects until it is used again; the
+      // server keeps it. A subdirectory entry removes only itself.
+      hide(project: Pick<Project, "worktree"> & { directory?: string }) {
+        if (project.directory) {
+          projects.hideSubdirectories([project.directory])
+
+          return
+        }
         const key = pathKey(project.worktree)
-        projects.hide(list().flatMap((item) => (pathKey(item.worktree) === key ? [item.id] : [])))
+        batch(() => {
+          projects.hide(list().flatMap((item) => (pathKey(item.worktree) === key ? [item.id] : [])))
+          projects.hideSubdirectories(
+            projects.subdirectories().filter((directory) => containsDirectory(project.worktree, directory)),
+          )
+        })
       },
     },
     notification,

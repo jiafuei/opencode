@@ -68,11 +68,12 @@ export function createProjectActions() {
             const api = ctx.sdk.api.experimental.session
 
             // SAFETY: the import endpoint validates the transcript, including exports written by earlier releases.
-            const imported = await api.import({ ...data, location: { directory: project.worktree } } as Parameters<
-              typeof api.import
-            >[0])
+            const imported = await api.import({
+              ...data,
+              location: { directory: project.directory ?? project.worktree },
+            } as Parameters<typeof api.import>[0])
 
-            sessions.openProjectSession(conn, project.worktree, imported)
+            sessions.openProjectSession(conn, project.directory ?? project.worktree, imported)
           },
         )
         .catch((cause: unknown) => {
