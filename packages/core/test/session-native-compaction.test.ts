@@ -9,6 +9,7 @@ import { llmClient } from "@opencode/core/effect/app-node-platform"
 import { Instructions } from "@opencode/core/instructions/index"
 import { PluginHooks } from "@opencode/core/plugin/hooks"
 import { Location } from "@opencode/core/location"
+import { Model } from "@opencode/core/model"
 import { Project } from "@opencode/core/project"
 import { ProjectTable } from "@opencode/core/project/sql"
 import { AbsolutePath } from "@opencode/core/schema"
@@ -240,6 +241,7 @@ const setup = Effect.fnUntraced(function* (options: { endpoint?: boolean } = {})
     sessionID,
     store,
     hooks,
+    db,
     model,
     compaction,
   }
@@ -398,6 +400,36 @@ it.live("compaction hooks supply the summary instead of provider compaction", ()
       metadata: { plugin: "custom" },
       tokens: { input: 10, output: 5 },
     })
+  }),
+)
+
+it.live("native compaction hooks send through the route and install their replacement", () =>
+  Effect.gen(function* () {
+    const fixture = yield* setup()
+    yield* fixture.prompt("Original user")
+    yield* fixture.hooks.register("session", "experimental.compaction.native", (event) =>
+      Effect.promise(async () => {
+        await event.send({ options: { safetyIdentifier: "native-hook" } })
+        event.result = {
+          replacement: [...event.retained, { role: "assistant", content: [{ type: "text", text: "plugin checkpoint" }] }],
+        }
+      }),
+    )
+    expect(yield* fixture.compact).toEqual({ status: "completed" })
+    expect(fixture.state.calls).toBe(1)
+    expect(fixture.bodies[0]).toMatchObject({ safety_identifier: "native-hook" })
+    expect(JSON.stringify(fixture.bodies[0])).not.toContain("compaction_trigger")
+    expect(fixture.headers[0]?.get("x-http-hook")).toBe("compaction")
+    const checkpoint = yield* fixture.checkpoint
+    expect(decode(checkpoint).map((message) => message.content)).toEqual([
+      [Message.text("Original user")],
+      [Message.text("plugin checkpoint")],
+    ])
+    // Plain messages carry nothing provider-specific, so another model and the original transcript start from them.
+    const other = { ...fixture.model.ref, id: Model.ID.make("another-model") }
+    for (const boundary of [other, "local"] as const) {
+      expect((yield* SessionHistory.load(fixture.db, fixture.sessionID, boundary))[0]?.id).toBe(checkpoint.id)
+    }
   }),
 )
 

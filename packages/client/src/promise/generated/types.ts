@@ -21,7 +21,7 @@ export type AgentID = string
 
 export type ProviderID = string
 
-export type ProviderCompaction = { type: "summary" } | { type: "native" }
+export type ConfigCompactionThreshold = number | string
 
 export type ProviderCacheTTL = `${number}${"ms" | "s" | "m" | "h" | "d"}`
 
@@ -403,15 +403,9 @@ export type LocationPublicInfo = {
 
 export type ModelRef = { id: string; providerID: ProviderID; variant?: string }
 
+export type ProviderCompaction = { type?: "summary" | "native"; threshold?: ConfigCompactionThreshold }
+
 export type ProviderCache = { ttl?: ProviderCacheTTL; warming?: ProviderCacheWarming }
-
-export type ModelVariantSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
-  [x: string]: any
-}
-
-export type ConfigModelVariantSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
-  [x: string]: JsonValue | null
-}
 
 export type PermissionRule = { action: string; resource: string; effect: PermissionEffect }
 
@@ -1063,6 +1057,14 @@ export type SessionMessageCompactionCompleted = {
 
 export type SessionStatsModelUsage = { model: ModelRef; steps: number; tokens: TokenUsageInfo; cost: MoneyUSD }
 
+export type ModelVariantSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
+  [x: string]: any
+}
+
+export type ConfigModelVariantSettings = { compaction?: ProviderCompaction; encoding?: ProviderEncoding } & {
+  [x: string]: JsonValue | null
+}
+
 export type ProviderSettings = {
   timeout?: number | false
   headerTimeout?: number | false
@@ -1094,13 +1096,6 @@ export type ConfigModelSettings = {
   cache?: ProviderCache
   encoding?: ProviderEncoding
 } & { [x: string]: JsonValue | null }
-
-export type ModelVariant = {
-  id: string
-  settings?: ModelVariantSettings
-  headers?: { [x: string]: string }
-  body?: { [x: string]: any }
-}
 
 export type PermissionRuleset = Array<PermissionRule>
 
@@ -2319,6 +2314,13 @@ export type SessionStatsInfo = {
   models: Array<SessionStatsModelUsage>
 }
 
+export type ModelVariant = {
+  id: string
+  settings?: ModelVariantSettings
+  headers?: { [x: string]: string }
+  body?: { [x: string]: any }
+}
+
 export type ProviderRequest = {
   settings: ProviderSettings
   headers: { [x: string]: string }
@@ -2336,28 +2338,6 @@ export type ProviderInfo = {
   settings?: ProviderSettings
   headers?: { [x: string]: string }
   body?: { [x: string]: any }
-}
-
-export type ModelInfo = {
-  id: string
-  modelID: string
-  providerID: ProviderID
-  canonical?: ProviderID
-  type?: ModelType
-  family?: string
-  name: string
-  compatibility?: ModelCompatibility
-  package?: string
-  settings?: ModelSettings
-  headers?: { [x: string]: string }
-  body?: { [x: string]: any }
-  capabilities: ModelCapabilities
-  variants: Array<ModelVariant>
-  time: { released: number }
-  cost: Array<ModelCost>
-  status: "alpha" | "beta" | "deprecated" | "active"
-  enabled: boolean
-  limit: { context: number; input?: number; output: number }
 }
 
 export type SessionInfo = {
@@ -2520,7 +2500,12 @@ export type ConfigEntry =
                 }
           }
         }
-        compaction?: { auto?: boolean; keep?: { tokens?: number }; buffer?: ConfigCompactionPercent | number }
+        compaction?: {
+          auto?: boolean
+          keep?: { tokens?: number }
+          buffer?: ConfigCompactionPercent | number
+          threshold?: ConfigCompactionThreshold
+        }
         skills?: Array<string>
         commands?: {
           [x: string]: {
@@ -2712,6 +2697,28 @@ export type ScheduleInfo = {
   lastOutcome?: ScheduleOutcome
   lastOutput?: string
   time: { created: number; updated: number }
+}
+
+export type ModelInfo = {
+  id: string
+  modelID: string
+  providerID: ProviderID
+  canonical?: ProviderID
+  type?: ModelType
+  family?: string
+  name: string
+  compatibility?: ModelCompatibility
+  package?: string
+  settings?: ModelSettings
+  headers?: { [x: string]: string }
+  body?: { [x: string]: any }
+  capabilities: ModelCapabilities
+  variants: Array<ModelVariant>
+  time: { released: number }
+  cost: Array<ModelCost>
+  status: "alpha" | "beta" | "deprecated" | "active"
+  enabled: boolean
+  limit: { context: number; input?: number; output: number }
 }
 
 export type AgentInfo = {
