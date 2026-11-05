@@ -7,7 +7,7 @@ fi
 
 TARGET=$(bun -p "process.platform + '-' + process.arch")
 
-bun install && \
+bun install --filter opencode --filter @opencode/cli --filter @opencode/app && \
 cd packages/cli && \
  OPENCODE_VERSION=$OPENCODE_VERSION bun script/build.ts --single --skip-install && \
  cp dist/cli-$TARGET/bin/opencode $HOME/.opencode/bin/opencode && \
