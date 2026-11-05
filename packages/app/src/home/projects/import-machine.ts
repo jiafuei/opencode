@@ -4,7 +4,7 @@ import type { ServerConnection } from "@/runtime/server/registry"
 /** Where the import was asked from: the imported session opens only while the user is still there. */
 export type ProjectImportTarget = {
   readonly conn: ServerConnection.Any
-  readonly worktree: string
+  readonly directory: string
   readonly originPath: string
 }
 

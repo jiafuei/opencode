@@ -5,6 +5,9 @@ export type Project = Omit<ProjectListOutput[number], "canonical"> & {
   worktrees: WorktreeDirectory[]
 }
 
+/** A used project, or one of its subdirectories (e.g. a monorepo package) when `directory` is set. */
+export type ProjectEntry = Project & { directory?: string }
+
 export type FileNode = {
   name: string
   path: string

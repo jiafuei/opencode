@@ -52,7 +52,8 @@ const DEFAULT_SESSION_WIDTH = 600
 
 const DEFAULT_DOCK_HEIGHT = 280
 
-export type LocalProject = Partial<Project> & { worktree: string }
+/** `directory` is set on a project's subdirectory entry, e.g. a monorepo package; the entry opens it. */
+export type LocalProject = Partial<Project> & { worktree: string; directory?: string }
 
 export type HomeProjectSelection = typeof layoutSchema.Type.home.selection
 

@@ -79,6 +79,8 @@ export function createNewSessionComposerAdapter(props: {
   draftID: string
   worktree: () => string
   root: () => string
+  /** Carried into whichever worktree runs the session. */
+  subdirectory: () => string
   branch: () => string | undefined
   submitted: () => void
   mcp: DraftMcpControls
@@ -103,9 +105,10 @@ export function createNewSessionComposerAdapter(props: {
     working: () => false,
     submitted: props.submitted,
     start(selection, submission, message) {
-      const projectDirectory = props.root()
+      const canonical = props.root()
+      const subdirectory = props.subdirectory()
       const worktree = props.worktree()
-      const directory = worktree === "main" ? projectDirectory : worktree
+      const directory = (worktree === "main" ? canonical : worktree) + subdirectory
       const sessionID = Session.ID.create()
       const settled = Promise.withResolvers<Started>()
 
@@ -115,7 +118,7 @@ export function createNewSessionComposerAdapter(props: {
           sessionID,
           workspace:
             worktree === "create"
-              ? { type: "new", projectDirectory, branch: props.branch() }
+              ? { type: "new", projectDirectory: canonical, branch: props.branch() }
               : { type: "existing", directory },
           mcp: props.mcp.capture(),
           toggling: worktree !== "create" && props.mcp.toggling(directory),
@@ -172,7 +175,18 @@ export function createNewSessionComposerAdapter(props: {
                   project: data.location.info({ directory: effect.projectDirectory })?.project,
                   branch: effect.branch,
                 }).then(
-                  (directory) => ({ type: "worktree.created", attempt, directory }) as const,
+                  // An untracked or ignored subdirectory is absent from a new worktree; the session runs at its root.
+                  async (directory) =>
+                    ({
+                      type: "worktree.created",
+                      attempt,
+                      directory: await serverSDK.api.file
+                        .list({ location: { directory }, path: subdirectory.slice(1) })
+                        .then(
+                          () => directory + subdirectory,
+                          () => directory,
+                        ),
+                    }) as const,
                   (error) => ({ type: "worktree.failed", attempt, message: errorMessage(language, error) }) as const,
                 ),
               )

@@ -393,14 +393,16 @@ export function createSessionInbox(options: { archived?: boolean } = {}) {
   }
 
   const open = (entry: InboxEntry) => {
-    const directory = entry.ctx.projects.forSession(entry.session)?.worktree ?? entry.session.location.directory
     void entry.ctx.data.session.message.sync(entry.session.id).catch((error) => {
       if (isSessionNotFoundError(error)) forget(entry.conn, entry.session.id)
     })
     void startTransition(() => {
       tabs.select(tabs.addSessionTab({ server: entry.server, sessionId: entry.session.id }))
       entry.ctx.data.session.remember(entry.ctx.data.session.get(entry.session.id) ?? entry.session)
-      entry.ctx.projects.touch(directory)
+      entry.ctx.projects.touch(
+        entry.session.location.directory,
+        entry.ctx.projects.forSession(entry.session)?.worktree,
+      )
     })
   }
 

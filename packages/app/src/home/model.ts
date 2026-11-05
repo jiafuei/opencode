@@ -16,6 +16,7 @@ import {
   type HomeSelectionEffect,
   type HomeSelectionEvent,
 } from "./machine"
+import type { ProjectEntry } from "@/runtime/server/types"
 
 export function createHomeController() {
   const layout = useLayout()
@@ -37,7 +38,10 @@ export function createHomeController() {
           failed: isServerFailed(global.servers.health[key]),
           connected: ctx?.sdk.connection.status() === "connected",
           projectsReady: !!ctx?.sync.project.ready() && servers.projects.forServer(key).legacy() === undefined,
-          usedProjects: (ctx?.projects.used() ?? []).map((project) => ({ id: project.id, worktree: project.worktree })),
+          usedProjects: (ctx?.projects.entries() ?? []).map((project) => ({
+            id: project.id,
+            worktree: project.directory ?? project.worktree,
+          })),
         }
       }),
     }),
@@ -87,7 +91,7 @@ export function createHomeController() {
         send({
           type: "project.added",
           attempt: effect.attempt,
-          project: project && { id: project.id, worktree: project.worktree },
+          project: project && { id: project.id, worktree: project.directory ?? project.worktree },
         }),
       () => dispatch({ type: "project.added", attempt: effect.attempt, project: undefined }),
     )
@@ -112,16 +116,22 @@ export function createHomeController() {
 
   const focusedServerCtx = useServerCtx(focusedServer)
   const focusedSync = () => focusedServerCtx()?.sync
-  // Home lists the server's projects this client has used.
+  // Home lists the server's projects this client has used, each followed by its subdirectory entries. Sessions stay
+  // grouped by project.
   const projects = createMemo(() => focusedServerCtx()?.projects.used() ?? [])
+  const entries = createMemo(() => focusedServerCtx()?.projects.entries() ?? [])
 
   const selectedProject = createMemo(() => {
     const directory = selection().directory
 
-    return directory ? projects().find((project) => pathKey(project.worktree) === pathKey(directory)) : undefined
+    return directory
+      ? entries().find((project) => pathKey(project.directory ?? project.worktree) === pathKey(directory))
+      : undefined
   })
 
-  const newSessionProject = createMemo(() => selectedProject() ?? focusedServerCtx()?.projects.last() ?? projects()[0])
+  const newSessionProject = createMemo(
+    (): ProjectEntry | undefined => selectedProject() ?? focusedServerCtx()?.projects.last() ?? projects()[0],
+  )
 
   return {
     selection: {
@@ -139,9 +149,10 @@ export function createHomeController() {
     },
     project: {
       list: projects,
+      entries,
       selected: selectedProject,
       newSession: newSessionProject,
-      forServer: (conn: ServerConnection.Any) => global.serverCtx(ServerConnection.key(conn))?.projects.used() ?? [],
+      forServer: (conn: ServerConnection.Any) => global.serverCtx(ServerConnection.key(conn))?.projects.entries() ?? [],
       select: (conn: ServerConnection.Any, directory: string) =>
         send({ type: "project.toggled", server: ServerConnection.key(conn), directory }),
       add: (conn: ServerConnection.Any, directories: string[]) =>
@@ -151,7 +162,7 @@ export function createHomeController() {
         const project = newSessionProject()
 
         if (!conn || !project) return
-        sessions.openProjectNewSession(conn, project.worktree)
+        sessions.openProjectNewSession(conn, project.directory ?? project.worktree)
       },
       openProjectNewSession: sessions.openProjectNewSession,
       openProjectSession: sessions.openProjectSession,

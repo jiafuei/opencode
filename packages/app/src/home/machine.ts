@@ -5,6 +5,7 @@ import { pathKey } from "@/workspaces/path-key"
 
 export type HomeProjectItem = {
   readonly id: string
+  /** The entry's own path: the project worktree, or the subdirectory of a subdirectory entry. */
   readonly worktree: string
 }
 

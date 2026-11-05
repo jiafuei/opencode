@@ -7,10 +7,11 @@ import { useSettings } from "@/settings/model"
 import { useTabs } from "@/shell/tabs/tabs"
 import { ServerConnection } from "@/runtime/server/registry"
 import { normalizeProjectInfo } from "@/runtime/server/global-sync/utils"
-import { sameDirectory } from "@opencode/util/path"
+import { containsDirectory, sameDirectory } from "@opencode/util/path"
 import {
   isWorkspaceDirectory,
   isWorkspaceSelection,
+  projectSubdirectory,
   workspaceDefaultSelection,
   workspaceSelectionDestination,
   workspaceSelectionDirectories,
@@ -269,6 +270,15 @@ export function createNewSessionWorkspaceController(input: {
     },
     project: {
       root: projectRoot,
+      /** The draft's path below its checkout's root, carried into whichever worktree runs the session. */
+      subdirectory: () => {
+        const directory = sdk().directory
+
+        return projectSubdirectory(
+          worktreeDirectories().find((item) => containsDirectory(item, directory)) ?? projectRoot(),
+          directory,
+        )
+      },
       workspaces: worktreeDirectories,
       managed: managedWorktrees,
       git: visible,

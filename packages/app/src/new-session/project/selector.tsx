@@ -18,6 +18,8 @@ export type PromptProject = {
   name?: string
   id?: string
   worktree: string
+  /** The subdirectory of `worktree` this entry opens, e.g. a monorepo package; the root when absent. */
+  directory?: string
   vcs?: string
   sandboxes?: string[]
   worktrees?: { directory: string; strategy?: string }[]
@@ -49,10 +51,9 @@ export function createPromptProjectController(input: { controls: Accessor<Prompt
     const projects = controls.available.filter((project) => !project.server || project.server.key === controls.server)
 
     return (
-      projects.find(
-        (project) =>
-          pathKey(project.worktree) === key || project.sandboxes?.some((sandbox) => pathKey(sandbox) === key),
-      ) ?? projects.find((project) => controls.projectID && project.id === controls.projectID)
+      projects.find((project) => pathKey(project.directory ?? project.worktree) === key) ??
+      projects.find((project) => !project.directory && project.sandboxes?.some((sandbox) => pathKey(sandbox) === key)) ??
+      projects.find((project) => !project.directory && controls.projectID && project.id === controls.projectID)
     )
   }
 
@@ -68,7 +69,9 @@ export function createPromptProjectController(input: { controls: Accessor<Prompt
   const selected = () => current() ?? projects()[0]
 
   const matches = (project: PromptProject, other?: PromptProject) =>
-    !!other && pathKey(other.worktree) === pathKey(project.worktree) && other.server?.key === project.server?.key
+    !!other &&
+    pathKey(other.directory ?? other.worktree) === pathKey(project.directory ?? project.worktree) &&
+    other.server?.key === project.server?.key
 
   return {
     selected,
@@ -85,7 +88,7 @@ export function createPromptProjectController(input: { controls: Accessor<Prompt
     },
     select(project: PromptProject, workspace?: string) {
       if (matches(project, current())) return
-      input.controls().select(project.worktree, project.server?.key, workspace)
+      input.controls().select(project.directory ?? project.worktree, project.server?.key, workspace)
     },
   }
 }

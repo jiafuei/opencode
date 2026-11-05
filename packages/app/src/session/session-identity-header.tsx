@@ -23,7 +23,7 @@ import {
 } from "solid-js"
 import { createStore } from "solid-js/store"
 import { PluginSlot } from "@/runtime/plugin/render"
-import { containsDirectory, getFilename } from "@opencode/util/path"
+import { containsDirectory, getFilename, sameDirectory } from "@opencode/util/path"
 import { useServer } from "@/runtime/server/current"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { ServerLabel } from "@/servers/registry/label"
@@ -118,18 +118,34 @@ export function SessionLocation(props: {
 
   const projectName = createMemo(() => displayName(props.project ?? { worktree: props.directory ?? "" }))
 
-  const worktree = createMemo(() => {
+  const worktreeRoot = createMemo(() => {
     const directory = props.directory
 
     if (!props.project || !directory) return
-    const root = workspaceDirectories(props.project).find((item) => containsDirectory(item, directory))
+
+    return workspaceDirectories(props.project).find((item) => containsDirectory(item, directory))
+  })
+
+  const worktree = createMemo(() => {
+    const root = worktreeRoot()
 
     return root ? getFilename(root) : undefined
   })
 
+  // A session below its checkout's root (e.g. a monorepo package) is named after that folder, like its Home entry.
+  const locationName = createMemo(() => {
+    const directory = props.directory
+    const root = worktreeRoot() ?? props.project?.worktree
+
+    if (!directory || !root || sameDirectory(root, directory) || !containsDirectory(root, directory))
+      return projectName()
+
+    return getFilename(directory)
+  })
+
   const git = () => !!props.project?.vcs
 
-  const label = createMemo(() => [projectName(), worktree()].filter(Boolean).join(" / "))
+  const label = createMemo(() => [locationName(), worktree()].filter(Boolean).join(" / "))
 
   const branch = () =>
     props.directory ? server.ctx.data.location.vcs.info({ directory: props.directory })?.branch.current : undefined
@@ -227,7 +243,7 @@ export function SessionLocation(props: {
               generated={getProjectAvatarGenerated(props.project)}
             />
             <bdi dir="auto" data-slot="session-location-project" class="session-location-label min-w-0 truncate">
-              {projectName()}
+              {locationName()}
             </bdi>
             <Show when={!props.compact && worktree()}>
               {(name) => (
