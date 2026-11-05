@@ -56,6 +56,17 @@ machine-wide one:
 /Library/Managed Preferences/ai.opencode.managed.plist
 ```
 
+Set `OPENCODE_TEST_MANAGED_CONFIG_DIR` to replace the system configuration directory on any platform.
+On macOS, set `OPENCODE_TEST_MANAGED_PREFERENCES_PATH` to load one plist instead of discovering user-specific or machine-wide preferences:
+
+```sh
+export OPENCODE_TEST_MANAGED_CONFIG_DIR=/path/to/managed-config
+export OPENCODE_TEST_MANAGED_PREFERENCES_PATH=/path/to/ai.opencode.managed.plist
+```
+
+Set these variables in the background service's environment, then restart the service.
+Unset or empty values use the default locations. A nonempty override replaces its default locations even if the directory or file does not exist.
+
 Managed settings have the highest precedence, so users and projects cannot
 override the values they set, and managed preferences override the system
 directory. Settings alone cannot stop users from adding providers, MCP servers,
