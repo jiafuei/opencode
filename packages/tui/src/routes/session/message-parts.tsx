@@ -7,6 +7,7 @@ import type {
   SessionMessageAssistantText,
 } from "@opencode/client"
 import { Spinner } from "../../component/spinner"
+import { transformMathSource } from "../../util/math"
 import { createSyntaxStyleMemo, useTheme, useThemes } from "../../context/theme"
 import { reasoningSummary } from "../../context/thinking"
 import { usePlugin } from "../../plugin/context"
@@ -105,7 +106,7 @@ export function ReasoningPart(props: {
                 drawUnstyledText={false}
                 streaming={true}
                 syntaxStyle={thinkingSyntax()}
-                content={content()}
+                content={transformMathSource(content())}
                 conceal={ctx.markdownMode() === "rendered"}
                 fg={theme.text.muted}
               />
@@ -180,6 +181,7 @@ export function TextPart(props: {
   const theme = useTheme()
   const { currentSyntax: syntax } = useThemes()
   const plugins = usePlugin()
+  const content = createMemo(() => transformMathSource(props.part.text.trim()))
   return (
     <Show when={props.part.text.trim()}>
       <box paddingLeft={3} flexShrink={0}>
@@ -188,7 +190,7 @@ export function TextPart(props: {
           ref={useSessionLinks()}
           syntaxStyle={syntax()}
           renderNode={plugins.markdown()}
-          content={props.part.text.trim()}
+          content={content()}
           streaming={props.message.time.completed === undefined}
           internalBlockMode="top-level"
           tableOptions={{ style: "grid", cellPaddingX: 1 }}
