@@ -5,8 +5,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./layout": "./src/layout.ts",
     "./markdown": "./src/markdown.ts",
-    "./plugin": "./src/plugin.ts"
+    "./parser": "./src/parser.ts",
+    "./plugin": "./src/plugin.ts",
+    "./types": "./src/types.ts"
   },
   "scripts": {
     "test": "bun test --timeout 30000 --only-failures",
