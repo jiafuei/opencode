@@ -1,5 +1,5 @@
 import { Service, type Endpoint } from "@opencode/client/effect/service"
-import { OpenCode, type SessionMessageAssistantTool } from "@opencode/client/promise"
+import { OpenCode, type JsonValue, type SessionMessageAssistantTool } from "@opencode/client/promise"
 import { FSUtil } from "@opencode/util/fs-util"
 import { noTimeoutFetch } from "@opencode/util/no-timeout-fetch"
 import { open } from "node:fs/promises"
@@ -26,6 +26,8 @@ export type RunCommandInput = {
   file: string[]
   title?: string
   archived?: boolean
+  /** Inline JSON schema or a path to one. */
+  outputSchema?: string
   thinking?: boolean
   auto?: boolean
 }
@@ -36,6 +38,7 @@ type Prepared = {
   directory: string
   message: string
   files: FilePart[]
+  outputSchema?: Record<string, JsonValue>
 }
 
 class RunTargetError extends Error {
@@ -72,7 +75,12 @@ async function run(input: RunCommandInput, signal: AbortSignal) {
   const message = mergeInput(argument, piped)
   if (!message?.trim()) fail("You must provide a message")
   const files = await Promise.all(input.file.map((file) => prepareFile(file, root)))
-  return execute(input, { directory, message, files }, input.server.endpoint, signal)
+  const schema = input.outputSchema?.trim()
+  const outputSchema =
+    schema === undefined
+      ? undefined
+      : JSON.parse(schema.startsWith("{") ? schema : await Bun.file(path.resolve(root, schema)).text())
+  return execute(input, { directory, message, files, outputSchema }, input.server.endpoint, signal)
 }
 
 async function execute(input: RunCommandInput, prepared: Prepared, endpoint: Endpoint, signal: AbortSignal) {
@@ -135,6 +143,7 @@ async function execute(input: RunCommandInput, prepared: Prepared, endpoint: End
     model: target.model,
     thinking: input.thinking ?? false,
     format: input.format,
+    outputSchema: prepared.outputSchema,
     auto: input.auto ?? false,
     standalone: input.server.standalone ?? false,
     signal,

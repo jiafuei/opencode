@@ -15,6 +15,7 @@ export interface UserPayload extends Schema.Schema.Type<typeof UserPayload> {}
 export const UserPayload = Schema.Struct({
   ...Prompt.fields,
   metadata: Schema.Record(Schema.String, Schema.Unknown).pipe(optional),
+  format: SessionMessage.OutputFormat.pipe(optional),
 }).annotate({ identifier: "Session.Inbox.UserPayload" })
 
 /** A {@link UserPayload} whose files may stay on the server, for clients that opt into `experimental-media-uri`. */

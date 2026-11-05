@@ -27,6 +27,7 @@ type Input = {
   model?: ModelRef
   thinking: boolean
   format: "default" | "json"
+  outputSchema?: Record<string, JsonValue>
   auto: boolean
   /** The server is private to this run, so MCP input requests in its location are this run's too. */
   standalone: boolean
@@ -219,6 +220,7 @@ export async function runNonInteractivePrompt(input: Input) {
       id: messageID,
       text: input.message,
       files: input.files,
+      format: input.outputSchema ? { type: "json_schema", schema: input.outputSchema } : undefined,
       delivery: "steer",
     })
     await state.admission
@@ -297,9 +299,17 @@ export async function runNonInteractivePrompt(input: Input) {
     state.phase = "settled"
     await render.reconcile(settled.messages)
     const error = finalError(settled, state)
-    if (!error) return
+    if (error) {
+      process.exitCode = 1
+      return render.error(error)
+    }
+    if (!input.outputSchema) return
+    const structured = settled.messages
+      .flatMap((message) => (message.type === "assistant" ? message.content : []))
+      .findLast((item) => item.type === "tool" && item.name === "StructuredOutput" && item.state.status === "completed")
+    if (structured?.type === "tool") return render.structured(structured.state.input)
     process.exitCode = 1
-    render.error(error)
+    render.error({ type: "structured-output", message: "Model did not produce structured output" })
   } finally {
     controller.abort()
     void stream.return?.(undefined).catch(() => {})
@@ -403,7 +413,8 @@ function renderer(input: Input) {
     const trimmed = value.trim()
     if (!trimmed) return
     const line = part.kind === "text" ? trimmed : `Thinking: ${trimmed}`
-    if (!process.stdout.isTTY) return void process.stdout.write(line + EOL)
+    // With --output-schema, stdout carries only the final structured JSON.
+    if (!process.stdout.isTTY && !input.outputSchema) return void process.stdout.write(line + EOL)
     block(part.kind === "text" ? line : `${UI.Style.TEXT_DIM}\u001b[3m${line}\u001b[0m${UI.Style.TEXT_NORMAL}`)
   }
 
@@ -463,6 +474,10 @@ function renderer(input: Input) {
   return {
     error: (error: RunError) => {
       if (!emit("error", Date.now(), { error })) UI.error(error.message)
+    },
+
+    structured: (structured: JsonValue) => {
+      if (!emit("structured", Date.now(), { structured })) process.stdout.write(JSON.stringify(structured) + EOL)
     },
 
     waiting: (jobs: Job[]) => {
