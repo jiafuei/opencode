@@ -64,7 +64,7 @@ describe("ConfigCompactionPlugin.Plugin", () => {
       yield* config.setEntries([
         new Document({
           type: "document",
-          info: new Info({ compaction: new ConfigCompaction.Info({ auto: false, buffer: 20_000 }) }),
+          info: new Info({ compaction: new ConfigCompaction.Info({ auto: false, buffer: 20_000, threshold: 80_000 }) }),
         }),
         new Document({
           type: "document",
@@ -112,7 +112,7 @@ describe("ConfigCompactionPlugin.Plugin", () => {
         }),
         new Document({
           type: "document",
-          info: new Info({ compaction: new ConfigCompaction.Info({ buffer: 10_000 }) }),
+          info: new Info({ compaction: new ConfigCompaction.Info({ buffer: 10_000, threshold: "88%" }) }),
         }),
       ])
       yield* bus.publish(Event.Updated, {})
@@ -176,4 +176,4 @@ const input = (tokens: number) => {
   }
 }
 const bufferedInput = input(85_000)
-const nearInput = input(95_000)
+const nearInput = input(89_000)

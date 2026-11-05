@@ -46,9 +46,9 @@ describe("ConfigProviderPlugin.Plugin", () => {
             providers: {
               custom: {
                 package: "@opencode/ai/providers/openai/responses",
-                settings: { compaction: { type: "native" } },
+                settings: { compaction: { type: "native", threshold: "80%" } },
                 models: {
-                  native: {},
+                  native: { settings: { compaction: { threshold: 120_000 } } },
                   local: {
                     settings: { compaction: { type: "summary" } },
                     package: "@opencode/ai/providers/openai/chat",
@@ -65,10 +65,13 @@ describe("ConfigProviderPlugin.Plugin", () => {
       const local = required(yield* models.get(Provider.ID.make("custom"), Model.ID.make("local")))
       const unsupported = required(yield* models.get(Provider.ID.make("custom"), Model.ID.make("unsupported")))
       const defaultModel = required(yield* models.get(Provider.ID.make("default"), Model.ID.make("chat")))
-      expect(native.settings?.compaction).toEqual({ type: "native" })
-      expect(local.settings?.compaction).toEqual({ type: "summary" })
+      expect(native.settings?.compaction).toEqual({ type: "native", threshold: 120_000 })
+      expect(local.settings?.compaction).toEqual({ type: "summary", threshold: "80%" })
       expect(defaultModel.settings?.compaction).toBeUndefined()
-      expect((yield* providers.get(Provider.ID.make("custom")))?.settings?.compaction).toEqual({ type: "native" })
+      expect((yield* providers.get(Provider.ID.make("custom")))?.settings?.compaction).toEqual({
+        type: "native",
+        threshold: "80%",
+      })
       yield* ModelResolver.fromCatalogModel(native)
       yield* ModelResolver.fromCatalogModel(local)
       yield* ModelResolver.fromCatalogModel(defaultModel)
