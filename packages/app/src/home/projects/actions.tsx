@@ -133,7 +133,7 @@ export function createProjectActions() {
       })
 
     if (effect.type === "session.open")
-      return sessions.openProjectSession(effect.target.conn, effect.target.worktree, effect.session)
+      return sessions.openProjectSession(effect.target.conn, effect.target.directory, effect.session)
     untrack(() => global.serverCtx(ServerConnection.key(effect.target.conn)))?.data.session.remember(effect.session)
   }
 
@@ -148,7 +148,7 @@ export function createProjectActions() {
     const api = ctx.sdk.api.experimental.session
 
     // SAFETY: the import endpoint validates the transcript, including exports written by earlier releases.
-    return api.import({ ...data, location: { directory: target.worktree } } as Parameters<typeof api.import>[0])
+    return api.import({ ...data, location: { directory: target.directory } } as Parameters<typeof api.import>[0])
   }
 
   onCleanup(() => dispatchImport({ type: "disposed" }))
@@ -165,7 +165,7 @@ export function createProjectActions() {
     importSession(conn: ServerConnection.Any, project: LocalProject) {
       dispatchImport({
         type: "import.requested",
-        target: { conn, worktree: project.worktree, originPath: currentPath() },
+        target: { conn, directory: project.directory ?? project.worktree, originPath: currentPath() },
       })
     },
     edit(conn: ServerConnection.Any, project: LocalProject) {

@@ -35,7 +35,7 @@ import { useData } from "@/runtime/server/current"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useGlobal } from "@/runtime/server/runtime"
 import { useCommand } from "@/shell/commands/command"
-import { workspaceSelectionDirectories } from "@/workspaces/paths"
+import { projectEntryName, projectSubdirectory, workspaceSelectionDirectories } from "@/workspaces/paths"
 import {
   BRANCH_PRELOAD_TIMEOUT_MS,
   INITIAL_BRANCH_PICKER_STATE,
@@ -279,7 +279,9 @@ function NewSessionLocationDialog(props: {
         .projects()
         .filter((project) => (others ? !project.used : project.used || !!query))
         // Remote projects also match their server's name, which their tag shows.
-        .filter((project) => matches(displayName(project), project.worktree, tagged(project.server)?.name))
+        .filter((project) =>
+          matches(projectEntryName(project), project.directory ?? project.worktree, tagged(project.server)?.name),
+        )
         .map((project) => ({ id: projectEntryID(project), type: "project" as const, project })),
       ...(!others
         ? [
@@ -306,10 +308,12 @@ function NewSessionLocationDialog(props: {
 
     if (!project) return []
     const directories = workspaceSelectionDirectories(project, listedItems(project))
+    // A subdirectory entry runs in the same subdirectory of whichever worktree is chosen.
+    const subdirectory = project.directory ? projectSubdirectory(project.worktree, project.directory) : ""
 
     return (
       [
-        { id: "main", type: "workspace" as const, project, value: "main", directory: project.worktree },
+        { id: "main", type: "workspace" as const, project, value: "main", directory: project.worktree + subdirectory },
         { id: "create", type: "workspace" as const, project, value: "create", directory: project.worktree },
         ...(project.vcs === "git" ? [{ id: "base", type: "base" as const, project, directory: project.worktree }] : []),
         ...directories.map((directory) => ({
@@ -317,7 +321,7 @@ function NewSessionLocationDialog(props: {
           type: "workspace" as const,
           project,
           value: directory,
-          directory,
+          directory: directory + subdirectory,
         })),
       ] satisfies LocationEntry[]
     ).filter((entry) =>
@@ -403,7 +407,7 @@ function NewSessionLocationDialog(props: {
   })
 
   function workspaceTitle(project: PromptProject, value: string) {
-    if (value === "main") return displayName(project)
+    if (value === "main") return projectEntryName(project)
 
     if (value === "create") return language.t("workspace.new")
 
@@ -586,7 +590,7 @@ function NewSessionLocationDialog(props: {
                             {(item) => (
                               <ProjectRow
                                 project={item().project}
-                                path={item().project.worktree}
+                                path={item().project.directory ?? item().project.worktree}
                                 onDrill={drillable(item().project) ? () => drill(item().project) : undefined}
                                 drillLabel={language.t("session.new.location.worktrees")}
                               />
@@ -731,7 +735,7 @@ function ProjectRow(props: {
         />
         <div class="command-palette-row-text">
           <span class="new-session-location-name">
-            <span class="command-palette-title palette-menu-title">{displayName(props.project)}</span>
+            <span class="command-palette-title palette-menu-title">{projectEntryName(props.project)}</span>
             <ServerTag server={props.project.server} />
             <Show when={props.branch}>
               {(branch) => (

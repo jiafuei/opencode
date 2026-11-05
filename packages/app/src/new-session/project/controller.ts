@@ -20,13 +20,13 @@ export function createComposerProjectControls(props: { draftId: string; worktree
   const projectServer = () => serverSDK.server
   const projectServerCtx = useServer().ctx
 
-  // Every server project, one per directory, marked as used by this client or not; the selector orders them.
+  // Every server project, one per directory, marked as used by this client or not; the selector orders them. Used
+  // projects bring their subdirectory entries.
   const listed = (ctx: ServerCtx, server?: PromptServer) => {
-    const used = ctx.projects.used()
-    const ids = new Set(used.map((project) => project.id))
+    const ids = new Set(ctx.projects.used().map((project) => project.id))
 
     return [
-      ...used.map((project) => ({ ...project, used: true, server })),
+      ...ctx.projects.entries().map((project) => ({ ...project, used: true, server })),
       ...ctx.projects
         .unique()
         .filter((project) => !ids.has(project.id))

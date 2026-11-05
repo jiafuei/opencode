@@ -17,6 +17,8 @@ export type SessionSearchState =
       readonly server: ServerConnection.Key
       readonly sessionID: string
       readonly directory: string | undefined
+      /** The worktree of the session's project, when the entry knows it. */
+      readonly root?: string
     }
   | { readonly status: "done"; readonly issued: number }
   | { readonly status: "disposed"; readonly issued: number }
@@ -27,6 +29,8 @@ export type SessionSearchEvent =
       readonly server: ServerConnection.Key
       readonly sessionID: string
       readonly directory: string | undefined
+      /** The worktree of the session's project, when the entry knows it. */
+      readonly root?: string
       readonly archived: boolean
     }
   | {
@@ -54,6 +58,8 @@ export type SessionSearchEffect =
       readonly server: ServerConnection.Key
       readonly sessionID: string
       readonly directory: string | undefined
+      /** The worktree of the session's project, when the entry knows it. */
+      readonly root?: string
     }
   | { readonly type: "toast.failed"; readonly error: unknown }
 
@@ -76,7 +82,7 @@ export function transitionSessionSearch(state: SessionSearchState, event: Sessio
         effects: [
           { type: "timer.clear", attempt: event.attempt },
           { type: "session.remember", server: event.server, session: event.session },
-          { type: "session.open", server: state.server, sessionID: state.sessionID, directory: state.directory },
+          { type: "session.open", server: state.server, sessionID: state.sessionID, directory: state.directory, root: state.root },
         ],
       }
 
@@ -101,7 +107,13 @@ export function transitionSessionSearch(state: SessionSearchState, event: Sessio
       return {
         state: { status: "done", issued: state.issued },
         effects: [
-          { type: "session.open", server: event.server, sessionID: event.sessionID, directory: event.directory },
+          {
+            type: "session.open",
+            server: event.server,
+            sessionID: event.sessionID,
+            directory: event.directory,
+            root: event.root,
+          },
         ],
       }
     const attempt = state.issued + 1
@@ -114,6 +126,7 @@ export function transitionSessionSearch(state: SessionSearchState, event: Sessio
         server: event.server,
         sessionID: event.sessionID,
         directory: event.directory,
+        root: event.root,
       },
       effects: [
         {

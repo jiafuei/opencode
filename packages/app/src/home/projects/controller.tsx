@@ -76,7 +76,7 @@ export function createHomeProjectsController(home: HomeController) {
       },
     },
     project: {
-      list: home.project.list,
+      entries: home.project.entries,
       select: (conn: ServerConnection.Any, directory: string) => {
         if (actions.authenticate(conn, (next) => home.project.select(next, directory))) return
         home.project.select(conn, directory)

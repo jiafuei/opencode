@@ -31,6 +31,7 @@ import { errorMessage } from "@/shell/layout/helpers"
 import { useSessionTabAvatarState } from "@/shell/layout/project-avatar-state"
 import { sessionTreeIDs } from "@/session/requests/session-request-tree"
 import { pathKey } from "@/workspaces/path-key"
+import { projectSubdirectory } from "@/workspaces/paths"
 import { createSessionExporter } from "@/session/commands/export-session"
 import {
   createSessionDeleteState,
@@ -57,7 +58,7 @@ import {
   type HomeSessionsTimer,
 } from "./load-machine"
 import type { HomeController } from "../model"
-import { buildHomeSessionRecords, homeProjectForSession, homeSessionLocation, type HomeSessionRecord } from "./records"
+import { buildHomeSessionRecords, homeSessionLocation, type HomeSessionRecord } from "./records"
 
 export type { HomeSessionRecord } from "./records"
 
@@ -363,8 +364,7 @@ export function createHomeSessionsController(home: HomeController) {
               if (!entry.sessionID || !entry.directory || !entry.server) return
               const sessionID = entry.sessionID
               const server = entry.server
-              const directory = entry.project?.worktree ?? entry.directory
-              ctx.projects.touch(directory)
+              ctx.projects.touch(entry.directory, entry.project?.worktree)
               void startTransition(() => {
                 const tab = tabs.addSessionTab({ server, sessionId: sessionID })
                 tabs.select(tab)
@@ -560,12 +560,10 @@ export function createHomeSessionsController(home: HomeController) {
       },
       create: home.project.openNewSession,
       open: (session: SessionInfo, options?: OpenSessionOptions) => {
-        const project = homeProjectForSession(session, home.project.list())
         const conn = home.server.focused()
 
         if (!conn) return
         const connKey = ServerConnection.key(conn)
-        const directory = project?.worktree ?? session.location.directory
         const ctx = home.server.focusedContext()
 
         if (!ctx) return
@@ -580,7 +578,8 @@ export function createHomeSessionsController(home: HomeController) {
           // Keep the canonical record's server times: the list row may carry a local send bump.
           ctx.data.session.remember(ctx.data.session.get(session.id) ?? session)
 
-          if (!options?.background) ctx.projects.touch(directory)
+          if (!options?.background)
+            ctx.projects.touch(session.location.directory, ctx.projects.forSession(session)?.worktree)
         })
       },
       archive: async (session: SessionInfo) => {
@@ -619,8 +618,14 @@ export function createHomeSessionsController(home: HomeController) {
   }
 }
 
+// A subdirectory entry lists the sessions of that subdirectory, in the main checkout and in each worktree.
 function directories(project: LocalProject) {
-  return [project.worktree, ...(project.sandboxes ?? [])]
+  const roots = [project.worktree, ...(project.sandboxes ?? [])]
+
+  if (!project.directory) return roots
+  const subdirectory = projectSubdirectory(project.worktree, project.directory)
+
+  return roots.map((root) => root + subdirectory)
 }
 
 const HOME_ROW_SELECTOR = '[data-component="home-session-row-container"]'

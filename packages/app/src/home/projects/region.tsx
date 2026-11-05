@@ -12,7 +12,7 @@ export function HomeProjects(props: {
       dropdown={props.dropdown}
       language={props.projects.copy.language}
       servers={props.projects.server.list()}
-      projects={props.projects.project.list()}
+      projects={props.projects.project.entries()}
       selection={props.projects.selection.value()}
       serverHealth={props.projects.server.health}
       serverLabel={props.projects.server.label}

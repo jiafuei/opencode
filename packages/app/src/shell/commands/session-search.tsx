@@ -105,7 +105,7 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
       // By id: once this dialog is gone, or replaced through `show`, the open closes nothing else.
       dialog.close(layer?.id)
 
-      if (effect.directory) global.serverCtx(effect.server)?.projects.touch(effect.directory)
+      if (effect.directory) global.serverCtx(effect.server)?.projects.touch(effect.directory, effect.root)
       void startTransition(() =>
         tabs.select(tabs.addSessionTab({ server: effect.server, sessionId: effect.sessionID })),
       )
@@ -145,7 +145,8 @@ export function DialogSessionSearch(props: { archived?: boolean }) {
       type: "entry.selected",
       server: item.server,
       sessionID: item.sessionID,
-      directory: item.project?.worktree ?? item.directory,
+      directory: item.directory,
+      root: item.project?.worktree,
       archived: !!props.archived,
     })
   }

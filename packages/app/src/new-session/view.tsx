@@ -26,6 +26,7 @@ import {
 import type { useNewSessionLocationDialog } from "@/new-session/location/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { useWorkspaceLocation } from "@/workspaces/location"
+import { projectEntryName } from "@/workspaces/paths"
 import { useProviders } from "@/providers/catalog/providers"
 import { NEW_SESSION_CONTENT_WIDTH } from "@/new-session/layout"
 import { Persist, persisted } from "@/runtime/persistence/storage"
@@ -132,6 +133,7 @@ export function NewSessionView(props: {
                       project={project()}
                       workspace={props.workspace.bar.visible() ? props.workspace.selection.value() : "main"}
                       root={props.workspace.project.root()}
+                      subdirectory={props.workspace.project.subdirectory()}
                       checkout={props.workspace.bar.checkout()}
                       branch={props.workspace.bar.branch()}
                       onboarding={onboardingVisible()}
@@ -298,6 +300,8 @@ function NewSessionLocation(props: {
   root: string
   /** Missing while the main checkout's Git info loads. */
   checkout?: { branch?: string }
+  /** The draft's path below the project root, e.g. "/packages/app". */
+  subdirectory: string
   branch?: string
   onboarding: boolean
   onClick: () => void
@@ -364,7 +368,11 @@ function NewSessionLocation(props: {
   // The checkout placeholder only covers a branch that is still loading; a loaded checkout without one says "No branch".
   const branchLoading = () => !props.branch && selectCheckoutSkeleton(checkoutLabel())
 
-  const path = () => (props.workspace === "main" || props.workspace === "create" ? props.root : props.workspace)
+  const path = () => {
+    if (props.workspace === "create") return props.root
+
+    return (props.workspace === "main" ? props.root : props.workspace) + props.subdirectory
+  }
 
   const fitted = createMemo(() => fitPath(path(), layout.width, layout.font))
 
@@ -400,7 +408,7 @@ function NewSessionLocation(props: {
                 variant={getProjectAvatarVariant(props.project.icon?.color)}
                 generated={getProjectAvatarGenerated(props.project)}
               />
-              <span class="min-w-0 truncate">{displayName(props.project)}</span>
+              <span class="min-w-0 truncate">{projectEntryName(props.project)}</span>
             </button>
           </Tooltip>
           <Show when={props.onOpen}>

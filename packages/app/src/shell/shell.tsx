@@ -181,7 +181,7 @@ export default function Layout(props: ParentProps) {
               if (!entry.sessionID || !entry.directory || !entry.server) return
               const sessionID = entry.sessionID
               const server = entry.server
-              global.serverCtx(server)?.projects.touch(entry.project?.worktree ?? entry.directory)
+              global.serverCtx(server)?.projects.touch(entry.directory, entry.project?.worktree)
               void startTransition(() => {
                 tabs.select(tabs.addSessionTab({ server, sessionId: sessionID }))
               })

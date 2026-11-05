@@ -45,6 +45,7 @@ export default function NewSessionPage(props: { draftId: string }) {
     draftID: props.draftId,
     worktree: workspace.selection.value,
     root: workspace.project.root,
+    subdirectory: workspace.project.subdirectory,
     branch: workspace.bar.branch,
     submitted: workspace.selection.remember,
     mcp,

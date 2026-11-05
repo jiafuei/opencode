@@ -11,7 +11,7 @@ import {
 
 const conn: ServerConnection.Any = { type: "sidecar", variant: "base", http: { url: "http://127.0.0.1:4096" } }
 
-const target = { conn, worktree: "/repo", originPath: "/" }
+const target = { conn, directory: "/repo", originPath: "/" }
 
 const file = new File(["{}"], "transcript.json")
 
